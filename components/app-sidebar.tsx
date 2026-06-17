@@ -3,33 +3,34 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  LayoutDashboard,
-  PlusCircle,
-  History,
-  User,
-} from "lucide-react"
+  IconLayoutDashboard,
+  IconPlus,
+  IconHistory,
+  IconUser,
+  IconLogout,
+} from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
 const menuItems = [
   {
     label: "Dashboard",
     href: "/dashboard",
-    icon: LayoutDashboard,
+    icon: IconLayoutDashboard,
   },
   {
     label: "Input Aktivitas",
     href: "/input-aktivitas",
-    icon: PlusCircle,
+    icon: IconPlus,
   },
   {
     label: "Riwayat",
     href: "/riwayat",
-    icon: History,
+    icon: IconHistory,
   },
   {
-    label: "Profile",
-    href: "/profile",
-    icon: User,
+    label: "Profil",
+    href: "/profil",
+    icon: IconUser,
   },
 ]
 
@@ -68,7 +69,7 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1 px-3">
+      <nav className="flex flex-1 flex-col gap-1 px-3">
         {menuItems.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -89,15 +90,11 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="mt-auto p-6">
-        <div className="rounded-lg bg-sidebar-accent p-4">
-          <p className="text-xs font-medium text-sidebar-accent-foreground">
-            Tips Hari Ini
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Cobalah teknik Pomodoro untuk meningkatkan fokus kamu.
-          </p>
-        </div>
+      <div className="px-3 pb-6">
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+          <IconLogout className="size-4" />
+          Logout
+        </button>
       </div>
     </aside>
   )
