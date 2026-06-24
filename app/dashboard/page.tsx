@@ -150,64 +150,29 @@ function categoryDistribution(acts: Activity[]): { name: string; value: number; 
     .sort((a, b) => b.value - a.value)
 }
 
-function lineChartData(acts: Activity[], period: string): { day: string; screentime: number }[] {
-  if (acts.length === 0) return []
-
+function getScreenTimeTrend(acts: Activity[], days: number): { day: string; screentime: number }[] {
   const now = new Date()
+  const result: { day: string; screentime: number }[] = []
 
-  if (period === "Harian") {
-    const result: { day: string; screentime: number }[] = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split("T")[0]
-      const dayActs = acts.filter((a) => a.date === dateStr)
-      result.push({
-        day: dayNames[d.getDay()],
-        screentime: parseFloat((totalMinutes(dayActs) / 60).toFixed(1)),
-      })
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const dateStr = d.toISOString().split("T")[0]
+    const dayActs = acts.filter((a) => a.date === dateStr)
+
+    let label: string
+    if (days <= 7) {
+      label = dayNames[d.getDay()]
+    } else {
+      label = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
     }
-    return result
-  }
 
-  if (period === "Mingguan") {
-    const result: { day: string; screentime: number }[] = []
-    for (let i = 3; i >= 0; i--) {
-      const weekEnd = new Date(now)
-      weekEnd.setDate(weekEnd.getDate() - i * 7)
-      const weekStart = new Date(weekEnd)
-      weekStart.setDate(weekStart.getDate() - 6)
-      const startStr = weekStart.toISOString().split("T")[0]
-      const endStr = weekEnd.toISOString().split("T")[0]
-      const weekActs = acts.filter((a) => a.date >= startStr && a.date <= endStr)
-      result.push({
-        day: `Mg${4 - i}`,
-        screentime: parseFloat((totalMinutes(weekActs) / 60).toFixed(1)),
-      })
-    }
-    return result
+    result.push({
+      day: label,
+      screentime: parseFloat((totalMinutes(dayActs) / 60).toFixed(1)),
+    })
   }
-
-  if (period === "Bulanan") {
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
-    const result: { day: string; screentime: number }[] = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const year = d.getFullYear()
-      const month = d.getMonth()
-      const startStr = `${year}-${String(month + 1).padStart(2, "0")}-01`
-      const lastDay = new Date(year, month + 1, 0).getDate()
-      const endStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
-      const monthActs = acts.filter((a) => a.date >= startStr && a.date <= endStr)
-      result.push({
-        day: monthNames[month],
-        screentime: parseFloat((totalMinutes(monthActs) / 60).toFixed(1)),
-      })
-    }
-    return result
-  }
-
-  return []
+  return result
 }
 
 function generateInsights(acts: Activity[], period: string): { title: string; description: string; iconBg: string; iconColor: string; icon: typeof IconTrendingUp }[] {
@@ -331,16 +296,18 @@ export default function DashboardPage() {
   }, [filtered])
 
   const donutData = useMemo(() => categoryDistribution(filtered), [filtered])
-  const lineData = useMemo(() => lineChartData(activities, activeFilter), [activities, activeFilter])
+  const lineData = useMemo(() => {
+    if (activeFilter === "Harian") return []
+    const days = activeFilter === "Mingguan" ? 7 : 30
+    return getScreenTimeTrend(activities, days)
+  }, [activities, activeFilter])
   const insights = useMemo(() => generateInsights(filtered, activeFilter), [filtered, activeFilter])
 
   const donutLabel = activeFilter === "Harian" ? "Distribusi waktu hari ini"
-    : activeFilter === "Mingguan" ? "Distribusi waktu minggu ini"
-    : "Distribusi waktu bulan ini"
+    : activeFilter === "Mingguan" ? "Distribusi waktu 7 hari terakhir"
+    : "Distribusi waktu 30 hari terakhir"
 
-  const lineLabel = activeFilter === "Harian" ? "Screen time hari ini"
-    : activeFilter === "Mingguan" ? "Screen time 7 hari terakhir"
-    : "Total per minggu bulan ini"
+  const lineLabel = activeFilter === "Mingguan" ? "Tren 7 hari terakhir" : "Tren 30 hari terakhir"
 
   const today = new Date().toISOString().split("T")[0]
 
@@ -439,7 +406,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div key={`charts-${activeFilter}`} className="grid grid-cols-1 gap-6 animate-fade-in-up lg:grid-cols-2">
+      <div key={`charts-${activeFilter}`} className={`grid grid-cols-1 gap-6 animate-fade-in-up ${activeFilter !== "Harian" ? "lg:grid-cols-2" : ""}`}>
         <Card>
           <CardHeader>
             <CardTitle>Penggunaan per Kategori</CardTitle>
@@ -483,45 +450,47 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Tren Screen Time</CardTitle>
-            <CardDescription>{lineLabel}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
-              {lineData.length > 0 ? (
-                <ChartContainer config={lineChartConfig} className="h-full w-full">
-                  <LineChart
-                    data={lineData}
-                    margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="screentime"
-                      stroke="var(--chart-1)"
-                      strokeWidth={2}
-                      dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Belum ada data
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {activeFilter !== "Harian" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tren Screen Time</CardTitle>
+              <CardDescription>{lineLabel}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                {lineData.length > 0 ? (
+                  <ChartContainer config={lineChartConfig} className="h-full w-full">
+                    <LineChart
+                      data={lineData}
+                      margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="day"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line
+                        type="monotone"
+                        dataKey="screentime"
+                        stroke="var(--chart-1)"
+                        strokeWidth={2}
+                        dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    Belum ada data
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div key={`insights-${activeFilter}`} className="flex flex-col gap-4 animate-fade-in-up">
