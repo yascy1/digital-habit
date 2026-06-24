@@ -156,13 +156,6 @@ function lineChartData(acts: Activity[], period: string): { day: string; screent
   const now = new Date()
 
   if (period === "Harian") {
-    const today = now.toISOString().split("T")[0]
-    const todayActs = acts.filter((a) => a.date === today)
-    const mins = totalMinutes(todayActs)
-    return [{ day: "Hari ini", screentime: parseFloat((mins / 60).toFixed(1)) }]
-  }
-
-  if (period === "Mingguan") {
     const result: { day: string; screentime: number }[] = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now)
@@ -177,19 +170,38 @@ function lineChartData(acts: Activity[], period: string): { day: string; screent
     return result
   }
 
-  if (period === "Bulanan") {
+  if (period === "Mingguan") {
     const result: { day: string; screentime: number }[] = []
     for (let i = 3; i >= 0; i--) {
-      const weekStart = new Date(now)
-      weekStart.setDate(weekStart.getDate() - (i * 7 + 6))
       const weekEnd = new Date(now)
       weekEnd.setDate(weekEnd.getDate() - i * 7)
+      const weekStart = new Date(weekEnd)
+      weekStart.setDate(weekStart.getDate() - 6)
       const startStr = weekStart.toISOString().split("T")[0]
       const endStr = weekEnd.toISOString().split("T")[0]
       const weekActs = acts.filter((a) => a.date >= startStr && a.date <= endStr)
       result.push({
         day: `Mg${4 - i}`,
         screentime: parseFloat((totalMinutes(weekActs) / 60).toFixed(1)),
+      })
+    }
+    return result
+  }
+
+  if (period === "Bulanan") {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+    const result: { day: string; screentime: number }[] = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const year = d.getFullYear()
+      const month = d.getMonth()
+      const startStr = `${year}-${String(month + 1).padStart(2, "0")}-01`
+      const lastDay = new Date(year, month + 1, 0).getDate()
+      const endStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+      const monthActs = acts.filter((a) => a.date >= startStr && a.date <= endStr)
+      result.push({
+        day: monthNames[month],
+        screentime: parseFloat((totalMinutes(monthActs) / 60).toFixed(1)),
       })
     }
     return result
