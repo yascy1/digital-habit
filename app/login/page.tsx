@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -77,6 +77,12 @@ export default function LoginPage() {
             <Button type="submit" className="mt-2 w-full">
               Masuk
             </Button>
+
+            <p className="text-center text-sm">
+              <Link href="/lupa-password" className="text-muted-foreground hover:underline">
+                Lupa Password?
+              </Link>
+            </p>
 
             <p className="text-center text-sm text-muted-foreground">
               Belum punya akun?{" "}
