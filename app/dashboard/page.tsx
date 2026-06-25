@@ -97,18 +97,54 @@ function toMinutes(a: Activity): number {
   return a.durationHours * 60 + a.durationMinutes
 }
 
+function makeDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 function getDateRange(days: number): string[] {
   const result: string[] = []
   const now = new Date()
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, "0")
-    const day = String(d.getDate()).padStart(2, "0")
-    result.push(`${y}-${m}-${day}`)
+    result.push(makeDateStr(d))
   }
   return result
+}
+
+function getDateRangeOffset(days: number, offsetDays: number): string[] {
+  const result: string[] = []
+  const now = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i - offsetDays)
+    result.push(makeDateStr(d))
+  }
+  return result
+}
+
+function filterActivities(activities: Activity[], dates: string[]): Activity[] {
+  const set = new Set(dates)
+  return activities.filter((a) => set.has(a.date))
+}
+
+function sumMinutes(activities: Activity[]): number {
+  return activities.reduce((s, a) => s + toMinutes(a), 0)
+}
+
+function formatMinutes(min: number): string {
+  if (min === 0) return "0j 0m"
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return `${h}j ${m}m`
+}
+
+function percentChange(current: number, previous: number): number | null {
+  if (previous === 0) return null
+  return Math.round(((current - previous) / previous) * 100)
 }
 
 function getScreenTimeTrend(activities: Activity[], days: number) {
@@ -150,55 +186,88 @@ function computeDonutData(activities: Activity[]) {
     }))
 }
 
-function computeStats(activities: Activity[], period: string) {
-  const totalMin = activities.reduce((s, a) => s + toMinutes(a), 0)
-  const hours = Math.floor(totalMin / 60)
-  const mins = totalMin % 60
-  const totalScreenTime = totalMin > 0 ? `${hours}j ${mins}m` : "0j 0m"
+function computeStats(allActivities: Activity[], period: string, datePicker: string) {
+  const periodDays = period === "Harian" ? 1 : period === "Mingguan" ? 7 : 30
+  const periodLabel = period === "Harian" ? "kemarin" : period === "Mingguan" ? "minggu lalu" : "bulan lalu"
 
-  const catCount: Record<string, number> = {}
-  for (const a of activities) {
+  const currentDates = period === "Harian"
+    ? [datePicker]
+    : getDateRange(periodDays)
+  const previousDates = period === "Harian"
+    ? [makeDateStr(new Date(new Date(datePicker + "T00:00:00").getTime() - 86400000))]
+    : getDateRangeOffset(periodDays, periodDays)
+
+  const current = filterActivities(allActivities, currentDates)
+  const previous = filterActivities(allActivities, previousDates)
+
+  const currentTotal = sumMinutes(current)
+  const previousTotal = sumMinutes(previous)
+
+  const currentCatMinutes: Record<string, number> = {}
+  for (const a of current) {
     const label = categoryLabels[a.category] ?? "Lainnya"
-    catCount[label] = (catCount[label] ?? 0) + toMinutes(a)
+    currentCatMinutes[label] = (currentCatMinutes[label] ?? 0) + toMinutes(a)
   }
-  const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0]
+  const previousCatMinutes: Record<string, number> = {}
+  for (const a of previous) {
+    const label = categoryLabels[a.category] ?? "Lainnya"
+    previousCatMinutes[label] = (previousCatMinutes[label] ?? 0) + toMinutes(a)
+  }
+
+  const sorted = Object.entries(currentCatMinutes).sort((a, b) => b[1] - a[1])
+  const topCat = sorted[0]
   const topCatLabel = topCat ? topCat[0] : "-"
-  const topCatPercent = totalMin > 0 ? Math.round((topCat[1] / totalMin) * 100) : 0
+  const topCatPercent = currentTotal > 0 && topCat ? Math.round((topCat[1] / currentTotal) * 100) : 0
 
-  const uniqueDays = new Set(activities.map((a) => a.date)).size
-  const avgMin = uniqueDays > 0 ? Math.round(totalMin / uniqueDays) : 0
-  const avgH = Math.floor(avgMin / 60)
-  const avgM = avgMin % 60
-  const avgScreenTime = uniqueDays > 0 ? `${avgH}j ${avgM}m` : "0j 0m"
+  const currentBelajar = currentCatMinutes["Belajar/Kerja"] ?? 0
+  const previousBelajar = previousCatMinutes["Belajar/Kerja"] ?? 0
+  const currentWellness = currentTotal > 0 ? Math.round((currentBelajar / currentTotal) * 100) : 0
+  const previousWellness = previousTotal > 0 ? Math.round((previousBelajar / previousTotal) * 100) : 0
 
-  const avgDailyMin = uniqueDays > 0 ? totalMin / uniqueDays : 0
-  const wellnessScore = totalMin === 0
-    ? 0
-    : Math.max(10, Math.min(100, Math.round(100 - (avgDailyMin / 6) * 10)))
+  const currentAvg = periodDays > 0 ? Math.round(currentTotal / periodDays) : 0
+  const previousAvg = periodDays > 0 ? Math.round(previousTotal / periodDays) : 0
+
+  const pctScreenTime = percentChange(currentTotal, previousTotal)
+  const pctAvg = percentChange(currentAvg, previousAvg)
+
+  let wellnessTrend: string
+  if (previousTotal === 0) {
+    wellnessTrend = "Belum ada data pembanding"
+  } else if (currentWellness > previousWellness) {
+    wellnessTrend = `Membaik dari ${periodLabel}`
+  } else if (currentWellness < previousWellness) {
+    wellnessTrend = `Menurun dari ${periodLabel}`
+  } else {
+    wellnessTrend = `Stabil dari ${periodLabel}`
+  }
 
   return {
     stats: [
       {
         icon: IconClock,
         label: "Total Screen Time",
-        value: totalScreenTime,
-        trend: period === "Harian" ? "hari ini" : `${uniqueDays} hari`,
+        value: currentTotal > 0 ? formatMinutes(currentTotal) : "0j 0m",
+        trend: previousTotal === 0
+          ? "Belum ada data pembanding"
+          : `${pctScreenTime !== null && pctScreenTime >= 0 ? "?" : "?"} ${Math.abs(pctScreenTime ?? 0)}% dari ${periodLabel}`,
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
       },
       {
         icon: IconHeart,
         label: "Digital Wellness Score",
-        value: totalMin === 0 ? "-" : `${wellnessScore}/100`,
-        trend: period === "Harian" ? "kemarin" : period === "Mingguan" ? "minggu lalu" : "bulan lalu",
+        value: currentTotal === 0 ? "-" : `${currentWellness}/100`,
+        trend: wellnessTrend,
         iconBg: "bg-green-100",
         iconColor: "text-green-600",
       },
       {
         icon: IconMoon,
         label: "Rata-rata / Hari",
-        value: avgScreenTime,
-        trend: `${uniqueDays} hari aktif`,
+        value: currentTotal > 0 ? formatMinutes(currentAvg) : "0j 0m",
+        trend: previousTotal === 0
+          ? "Belum ada data pembanding"
+          : `${pctAvg !== null && pctAvg >= 0 ? "?" : "?"} ${Math.abs(pctAvg ?? 0)}% dari ${periodLabel}`,
         iconBg: "bg-amber-100",
         iconColor: "text-amber-600",
       },
@@ -211,7 +280,7 @@ function computeStats(activities: Activity[], period: string) {
         iconColor: "text-purple-600",
       },
     ],
-    donutData: computeDonutData(activities),
+    donutData: computeDonutData(current),
     donutLabel:
       period === "Harian"
         ? "Distribusi waktu hari ini"
@@ -299,7 +368,18 @@ export default function DashboardPage() {
     new Date().toISOString().split("T")[0]
   )
 
-  const filteredActivities = useMemo(() => {
+  const lineData = useMemo(() => {
+    if (activeFilter === "Harian") return []
+    const days = activeFilter === "Mingguan" ? 7 : 30
+    return getScreenTimeTrend(activities, days)
+  }, [activities, activeFilter])
+
+  const { stats, donutData, donutLabel } = useMemo(
+    () => computeStats(activities, activeFilter, datePicker),
+    [activities, activeFilter, datePicker]
+  )
+
+  const filteredForInsights = useMemo(() => {
     if (activeFilter === "Harian") {
       return activities.filter((a) => a.date === datePicker)
     }
@@ -308,20 +388,9 @@ export default function DashboardPage() {
     return activities.filter((a) => range.includes(a.date))
   }, [activities, activeFilter, datePicker])
 
-  const lineData = useMemo(() => {
-    if (activeFilter === "Harian") return []
-    const days = activeFilter === "Mingguan" ? 7 : 30
-    return getScreenTimeTrend(activities, days)
-  }, [activities, activeFilter])
-
-  const { stats, donutData, donutLabel } = useMemo(
-    () => computeStats(filteredActivities, activeFilter),
-    [filteredActivities, activeFilter]
-  )
-
   const insights = useMemo(
-    () => computeInsights(filteredActivities, activeFilter),
-    [filteredActivities, activeFilter]
+    () => computeInsights(filteredForInsights, activeFilter),
+    [filteredForInsights, activeFilter]
   )
 
   const showLineChart = activeFilter !== "Harian"
