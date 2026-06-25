@@ -34,7 +34,7 @@ import {
   CartesianGrid,
   XAxis,
 } from "recharts"
-import { getActivities } from "@/lib/activities"
+import { getActivities, getProfile } from "@/lib/activities"
 import type { Activity } from "@/lib/types"
 
 const lineChartConfig = {
@@ -171,7 +171,10 @@ function computeStats(activities: Activity[], period: string) {
   const avgM = avgMin % 60
   const avgScreenTime = uniqueDays > 0 ? `${avgH}j ${avgM}m` : "0j 0m"
 
-  const wellnessScore = Math.max(0, Math.min(100, 100 - Math.floor(totalMin / (uniqueDays || 1) / 3)))
+  const avgDailyMin = uniqueDays > 0 ? totalMin / uniqueDays : 0
+  const wellnessScore = totalMin === 0
+    ? 0
+    : Math.max(10, Math.min(100, Math.round(100 - (avgDailyMin / 6) * 10)))
 
   return {
     stats: [
@@ -186,7 +189,7 @@ function computeStats(activities: Activity[], period: string) {
       {
         icon: IconHeart,
         label: "Digital Wellness Score",
-        value: `${wellnessScore}/100`,
+        value: totalMin === 0 ? "-" : `${wellnessScore}/100`,
         trend: period === "Harian" ? "kemarin" : period === "Mingguan" ? "minggu lalu" : "bulan lalu",
         iconBg: "bg-green-100",
         iconColor: "text-green-600",
@@ -291,6 +294,7 @@ const filters = ["Harian", "Mingguan", "Bulanan"] as const
 export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState<string>("Harian")
   const [activities] = useState<Activity[]>(() => getActivities())
+  const profile = getProfile()
   const [datePicker, setDatePicker] = useState<string>(
     new Date().toISOString().split("T")[0]
   )
@@ -327,7 +331,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Halo, Tyas!
+            {"Halo, " + (profile.fullName?.split(" ")[0] || "Pengguna") + "!"}
           </h1>
           <p className="text-sm text-muted-foreground">
             Ini ringkasan aktivitas digitalmu.
