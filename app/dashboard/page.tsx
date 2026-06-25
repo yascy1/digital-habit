@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import {
   IconClock,
   IconHeart,
@@ -34,8 +34,6 @@ import {
   CartesianGrid,
   XAxis,
 } from "recharts"
-import { getActivities } from "@/lib/activities"
-import type { Activity } from "@/lib/types"
 
 const lineChartConfig = {
   screentime: {
@@ -70,257 +68,252 @@ const donutChartConfig = {
   },
 } satisfies ChartConfig
 
-const categoryLabels: Record<string, string> = {
-  "media-sosial": "Media Sosial",
-  "belajar-kerja": "Belajar/Kerja",
-  hiburan: "Hiburan",
-  gaming: "Gaming",
-  lainnya: "Lainnya",
-}
-
-const chartColors: Record<string, string> = {
-  "Media Sosial": "var(--chart-1)",
-  "Belajar/Kerja": "var(--chart-2)",
-  Hiburan: "var(--chart-3)",
-  Gaming: "var(--chart-4)",
-  Lainnya: "var(--chart-5)",
-}
-
-const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00")
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
-}
-
-function toMinutes(a: Activity): number {
-  return a.durationHours * 60 + a.durationMinutes
-}
-
-function getDateRange(days: number): string[] {
-  const result: string[] = []
-  const now = new Date()
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, "0")
-    const day = String(d.getDate()).padStart(2, "0")
-    result.push(`${y}-${m}-${day}`)
-  }
-  return result
-}
-
-function getScreenTimeTrend(activities: Activity[], days: number) {
-  const range = getDateRange(days)
-  const grouped: Record<string, number> = {}
-  for (const date of range) grouped[date] = 0
-
-  for (const a of activities) {
-    if (grouped[a.date] !== undefined) {
-      grouped[a.date] += toMinutes(a)
-    }
-  }
-
-  return range.map((date) => {
-    const d = new Date(date + "T00:00:00")
-    return {
-      day: days <= 7 ? dayNames[d.getDay()] : formatDate(date),
-      screentime: grouped[date],
-    }
-  })
-}
-
-function computeDonutData(activities: Activity[]) {
-  const catMinutes: Record<string, number> = {}
-  for (const a of activities) {
-    const label = categoryLabels[a.category] ?? "Lainnya"
-    catMinutes[label] = (catMinutes[label] ?? 0) + toMinutes(a)
-  }
-
-  const total = Object.values(catMinutes).reduce((s, v) => s + v, 0)
-  if (total === 0) return []
-
-  return Object.entries(catMinutes)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, value]) => ({
-      name,
-      value: Math.round((value / total) * 100),
-      fill: chartColors[name] ?? "var(--chart-5)",
-    }))
-}
-
-function computeStats(activities: Activity[], period: string) {
-  const totalMin = activities.reduce((s, a) => s + toMinutes(a), 0)
-  const hours = Math.floor(totalMin / 60)
-  const mins = totalMin % 60
-  const totalScreenTime = totalMin > 0 ? `${hours}j ${mins}m` : "0j 0m"
-
-  const catCount: Record<string, number> = {}
-  for (const a of activities) {
-    const label = categoryLabels[a.category] ?? "Lainnya"
-    catCount[label] = (catCount[label] ?? 0) + toMinutes(a)
-  }
-  const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0]
-  const topCatLabel = topCat ? topCat[0] : "-"
-  const topCatPercent = totalMin > 0 ? Math.round((topCat[1] / totalMin) * 100) : 0
-
-  const uniqueDays = new Set(activities.map((a) => a.date)).size
-  const avgMin = uniqueDays > 0 ? Math.round(totalMin / uniqueDays) : 0
-  const avgH = Math.floor(avgMin / 60)
-  const avgM = avgMin % 60
-  const avgScreenTime = uniqueDays > 0 ? `${avgH}j ${avgM}m` : "0j 0m"
-
-  const wellnessScore = Math.max(0, Math.min(100, 100 - Math.floor(totalMin / (uniqueDays || 1) / 3)))
-
-  return {
+const filterData = {
+  Harian: {
     stats: [
       {
         icon: IconClock,
         label: "Total Screen Time",
-        value: totalScreenTime,
-        trend: period === "Harian" ? "hari ini" : `${uniqueDays} hari`,
+        value: "6j 30m",
+        trend: "+10% dari kemarin",
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
       },
       {
         icon: IconHeart,
         label: "Digital Wellness Score",
-        value: `${wellnessScore}/100`,
-        trend: period === "Harian" ? "kemarin" : period === "Mingguan" ? "minggu lalu" : "bulan lalu",
+        value: "72/100",
+        trend: "+5 dari kemarin",
         iconBg: "bg-green-100",
         iconColor: "text-green-600",
       },
       {
         icon: IconMoon,
-        label: "Rata-rata / Hari",
-        value: avgScreenTime,
-        trend: `${uniqueDays} hari aktif`,
+        label: "Penggunaan Malam",
+        value: "2j 15m",
+        trend: "-8% dari kemarin",
         iconBg: "bg-amber-100",
         iconColor: "text-amber-600",
       },
       {
         icon: IconDeviceMobile,
         label: "Aktivitas Terbanyak",
-        value: topCatLabel,
-        trend: `${topCatPercent}% waktu layar`,
+        value: "Media Sosial",
+        trend: "42% waktu layar",
         iconBg: "bg-purple-100",
         iconColor: "text-purple-600",
       },
     ],
-    donutData: computeDonutData(activities),
-    donutLabel:
-      period === "Harian"
-        ? "Distribusi waktu hari ini"
-        : period === "Mingguan"
-          ? "Distribusi 7 hari terakhir"
-          : "Distribusi 30 hari terakhir",
-  }
-}
-
-function computeInsights(activities: Activity[], period: string) {
-  if (activities.length === 0) {
-    return [
+    lineData: [
+      { day: "Sen", screentime: 6.2 },
+      { day: "Sel", screentime: 7.1 },
+      { day: "Rab", screentime: 5.0 },
+      { day: "Kam", screentime: 7.5 },
+      { day: "Jum", screentime: 6.8 },
+      { day: "Sab", screentime: 8.4 },
+      { day: "Min", screentime: 5.3 },
+    ],
+    donutData: [
+      { name: "Media Sosial", value: 42, fill: "var(--chart-1)" },
+      { name: "Belajar/Kerja", value: 28, fill: "var(--chart-2)" },
+      { name: "Hiburan", value: 15, fill: "var(--chart-3)" },
+      { name: "Gaming", value: 10, fill: "var(--chart-4)" },
+      { name: "Lainnya", value: 5, fill: "var(--chart-5)" },
+    ],
+    donutLabel: "Distribusi waktu hari ini",
+    lineLabel: "7 hari terakhir",
+    insights: [
       {
         icon: IconTrendingUp,
-        title: "Belum ada data",
-        description: "Mulai catat aktivitas digitalmu untuk melihat insight.",
+        title: "Penggunaan media sosial meningkat",
+        description:
+          "Penggunaan media sosialmu naik 18% hari ini. Pertimbangkan untuk mengatur batas waktu harian.",
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
       },
-    ]
-  }
-
-  const catMinutes: Record<string, number> = {}
-  for (const a of activities) {
-    const label = categoryLabels[a.category] ?? "Lainnya"
-    catMinutes[label] = (catMinutes[label] ?? 0) + toMinutes(a)
-  }
-  const totalMin = Object.values(catMinutes).reduce((s, v) => s + v, 0)
-  const sorted = Object.entries(catMinutes).sort((a, b) => b[1] - a[1])
-  const topCat = sorted[0]
-  const topPercent = totalMin > 0 ? Math.round((topCat[1] / totalMin) * 100) : 0
-
-  const insights = [
-    {
-      icon: IconTrendingUp,
-      title: `${topCat[0]} mendominasi`,
-      description: `${topCat[0]} menyumbang ${topPercent}% total waktu layarmu ${period === "Harian" ? "hari ini" : `dalam ${period.toLowerCase()}`}.`,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-    },
-  ]
-
-  if (sorted.length > 1) {
-    const second = sorted[1]
-    const secondPercent = totalMin > 0 ? Math.round((second[1] / totalMin) * 100) : 0
-    insights.push({
-      icon: IconCheck,
-      title: `${second[0]} di posisi kedua`,
-      description: `${second[0]} mencapai ${secondPercent}% dari total waktu layar.`,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-    })
-  }
-
-  const uniqueDays = new Set(activities.map((a) => a.date)).size
-  const avgMin = uniqueDays > 0 ? Math.round(totalMin / uniqueDays) : 0
-  if (avgMin > 360) {
-    insights.push({
-      icon: IconMoon,
-      title: "Screen time cukup tinggi",
-      description: `Rata-rata ${Math.floor(avgMin / 60)}j ${avgMin % 60}m per hari. Pertimbangkan untuk mengurangi waktu layar.`,
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
-    })
-  } else {
-    insights.push({
-      icon: IconHeart,
-      title: "Screen time terkendali",
-      description: `Rata-rata ${Math.floor(avgMin / 60)}j ${avgMin % 60}m per hari. Pertahankan pola ini!`,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-    })
-  }
-
-  return insights
+      {
+        icon: IconMoon,
+        title: "Penggunaan malam cukup tinggi",
+        description:
+          "Kamu masih aktif menggunakan gadget hingga larut malam. Coba matikan notifikasi setelah jam 22:00.",
+        iconBg: "bg-amber-100",
+        iconColor: "text-amber-600",
+      },
+      {
+        icon: IconCheck,
+        title: "Konsistensi belajar/kerja baik",
+        description:
+          "Waktu belajar/kerja kamu hari ini mencapai 2 jam. Pertahankan pola ini!",
+        iconBg: "bg-green-100",
+        iconColor: "text-green-600",
+      },
+    ],
+  },
+  Mingguan: {
+    stats: [
+      {
+        icon: IconClock,
+        label: "Total Screen Time",
+        value: "42j 15m",
+        trend: "+12% dari minggu lalu",
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+      },
+      {
+        icon: IconHeart,
+        label: "Digital Wellness Score",
+        value: "68/100",
+        trend: "-4 dari minggu lalu",
+        iconBg: "bg-green-100",
+        iconColor: "text-green-600",
+      },
+      {
+        icon: IconMoon,
+        label: "Penggunaan Malam",
+        value: "14j 30m",
+        trend: "+15% dari minggu lalu",
+        iconBg: "bg-amber-100",
+        iconColor: "text-amber-600",
+      },
+      {
+        icon: IconDeviceMobile,
+        label: "Aktivitas Terbanyak",
+        value: "Media Sosial",
+        trend: "38% total waktu",
+        iconBg: "bg-purple-100",
+        iconColor: "text-purple-600",
+      },
+    ],
+    lineData: [
+      { day: "Sen", screentime: 6.8 },
+      { day: "Sel", screentime: 7.3 },
+      { day: "Rab", screentime: 5.5 },
+      { day: "Kam", screentime: 6.9 },
+      { day: "Jum", screentime: 7.1 },
+      { day: "Sab", screentime: 9.0 },
+      { day: "Min", screentime: 8.2 },
+    ],
+    donutData: [
+      { name: "Media Sosial", value: 38, fill: "var(--chart-1)" },
+      { name: "Belajar/Kerja", value: 30, fill: "var(--chart-2)" },
+      { name: "Hiburan", value: 17, fill: "var(--chart-3)" },
+      { name: "Gaming", value: 10, fill: "var(--chart-4)" },
+      { name: "Lainnya", value: 5, fill: "var(--chart-5)" },
+    ],
+    donutLabel: "Distribusi waktu minggu ini",
+    lineLabel: "Rata-rata per hari minggu ini",
+    insights: [
+      {
+        icon: IconTrendingUp,
+        title: "Media sosial masih mendominasi",
+        description:
+          "Sepanjang minggu, media sosial menyumbang 38% waktu layar. Pertimbangkan untuk mengurangi scrolling.",
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+      },
+      {
+        icon: IconMoon,
+        title: "Penggunaan malam meningkat",
+        description:
+          "Waktu layar malam hari naik 15% dari minggu lalu. Usahakan untuk berhenti sebelum jam 22:00.",
+        iconBg: "bg-amber-100",
+        iconColor: "text-amber-600",
+      },
+      {
+        icon: IconCheck,
+        title: "Waktu belajar/kerja stabil",
+        description:
+          "Rata-rata belajar/kerja 3 jam per hari. Konsistensi yang baik, pertahankan!",
+        iconBg: "bg-green-100",
+        iconColor: "text-green-600",
+      },
+    ],
+  },
+  Bulanan: {
+    stats: [
+      {
+        icon: IconClock,
+        label: "Total Screen Time",
+        value: "168j 45m",
+        trend: "+8% dari bulan lalu",
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+      },
+      {
+        icon: IconHeart,
+        label: "Digital Wellness Score",
+        value: "65/100",
+        trend: "-7 dari bulan lalu",
+        iconBg: "bg-green-100",
+        iconColor: "text-green-600",
+      },
+      {
+        icon: IconMoon,
+        label: "Penggunaan Malam",
+        value: "58j 20m",
+        trend: "+20% dari bulan lalu",
+        iconBg: "bg-amber-100",
+        iconColor: "text-amber-600",
+      },
+      {
+        icon: IconDeviceMobile,
+        label: "Aktivitas Terbanyak",
+        value: "Belajar/Kerja",
+        trend: "32% total waktu",
+        iconBg: "bg-purple-100",
+        iconColor: "text-purple-600",
+      },
+    ],
+    lineData: [
+      { day: "Mg1", screentime: 42.5 },
+      { day: "Mg2", screentime: 45.2 },
+      { day: "Mg3", screentime: 39.8 },
+      { day: "Mg4", screentime: 41.0 },
+    ],
+    donutData: [
+      { name: "Media Sosial", value: 35, fill: "var(--chart-1)" },
+      { name: "Belajar/Kerja", value: 32, fill: "var(--chart-2)" },
+      { name: "Hiburan", value: 16, fill: "var(--chart-3)" },
+      { name: "Gaming", value: 12, fill: "var(--chart-4)" },
+      { name: "Lainnya", value: 5, fill: "var(--chart-5)" },
+    ],
+    donutLabel: "Distribusi waktu bulan ini",
+    lineLabel: "Total per minggu bulan ini",
+    insights: [
+      {
+        icon: IconTrendingUp,
+        title: "Waktu layar bulanan tinggi",
+        description:
+          "Total 168 jam bulan ini, naik 8% dari bulan lalu. Pertimbangkan untuk menetapkan target bulanan.",
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+      },
+      {
+        icon: IconMoon,
+        title: "Penggunaan malam perlu diperhatikan",
+        description:
+          "58 jam penggunaan malam dalam sebulan. Ini bisa mengganggu kualitas tidur jangka panjang.",
+        iconBg: "bg-amber-100",
+        iconColor: "text-amber-600",
+      },
+      {
+        icon: IconCheck,
+        title: "Belajar/kerja jadi aktivitas terbanyak",
+        description:
+          "Pertama kalinya belajar/kerja mengalahkan media sosial. Pencapaian yang bagus!",
+        iconBg: "bg-green-100",
+        iconColor: "text-green-600",
+      },
+    ],
+  },
 }
 
 const filters = ["Harian", "Mingguan", "Bulanan"] as const
 
 export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState<string>("Harian")
-  const [activities] = useState<Activity[]>(() => getActivities())
-  const [datePicker, setDatePicker] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  )
-
-  const filteredActivities = useMemo(() => {
-    if (activeFilter === "Harian") {
-      return activities.filter((a) => a.date === datePicker)
-    }
-    const days = activeFilter === "Mingguan" ? 7 : 30
-    const range = getDateRange(days)
-    return activities.filter((a) => range.includes(a.date))
-  }, [activities, activeFilter, datePicker])
-
-  const lineData = useMemo(() => {
-    if (activeFilter === "Harian") return []
-    const days = activeFilter === "Mingguan" ? 7 : 30
-    return getScreenTimeTrend(activities, days)
-  }, [activities, activeFilter])
-
-  const { stats, donutData, donutLabel } = useMemo(
-    () => computeStats(filteredActivities, activeFilter),
-    [filteredActivities, activeFilter]
-  )
-
-  const insights = useMemo(
-    () => computeInsights(filteredActivities, activeFilter),
-    [filteredActivities, activeFilter]
-  )
-
-  const showLineChart = activeFilter !== "Harian"
+  const currentData =
+    filterData[activeFilter as keyof typeof filterData] || filterData.Harian
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -330,20 +323,17 @@ export default function DashboardPage() {
             Halo, Tyas!
           </h1>
           <p className="text-sm text-muted-foreground">
-            Ini ringkasan aktivitas digitalmu.
+            Ini ringkasan aktivitas digitalmu hari ini.
           </p>
         </div>
-        {activeFilter === "Harian" && (
-          <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-            <IconCalendar className="size-4 text-muted-foreground" />
-            <input
-              type="date"
-              value={datePicker}
-              onChange={(e) => setDatePicker(e.target.value)}
-              className="bg-transparent text-sm outline-none"
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+          <IconCalendar className="size-4 text-muted-foreground" />
+          <input
+            type="date"
+            defaultValue="2026-06-17"
+            className="bg-transparent text-sm outline-none"
+          />
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -363,7 +353,7 @@ export default function DashboardPage() {
       </div>
 
       <div key={`stats-${activeFilter}`} className="grid grid-cols-1 gap-4 animate-fade-in-up sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {currentData.stats.map((stat) => (
           <Card key={stat.label}>
             <CardContent>
               <div className="flex items-center gap-3">
@@ -385,11 +375,11 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div key={`charts-${activeFilter}`} className={`grid gap-6 animate-fade-in-up ${showLineChart ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+      <div key={`charts-${activeFilter}`} className="grid grid-cols-1 gap-6 animate-fade-in-up lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Penggunaan per Kategori</CardTitle>
-            <CardDescription>{donutLabel}</CardDescription>
+            <CardDescription>{currentData.donutLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
@@ -403,7 +393,7 @@ export default function DashboardPage() {
                     }
                   />
                   <Pie
-                    data={donutData}
+                    data={currentData.donutData}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
@@ -412,7 +402,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     strokeWidth={2}
                   >
-                    {donutData.map((entry) => (
+                    {currentData.donutData.map((entry) => (
                       <Cell key={entry.name} fill={entry.fill} />
                     ))}
                   </Pie>
@@ -423,53 +413,47 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {showLineChart && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Tren Screen Time</CardTitle>
-              <CardDescription>
-                {activeFilter === "Mingguan"
-                  ? "7 hari terakhir"
-                  : "30 hari terakhir"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ChartContainer config={lineChartConfig} className="h-full w-full">
-                  <LineChart
-                    data={lineData}
-                    margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="screentime"
-                      stroke="var(--chart-1)"
-                      strokeWidth={2}
-                      dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tren Screen Time</CardTitle>
+            <CardDescription>{currentData.lineLabel}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ChartContainer config={lineChartConfig} className="h-full w-full">
+                <LineChart
+                  data={currentData.lineData}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="screentime"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2}
+                    dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div key={`insights-${activeFilter}`} className="flex flex-col gap-4 animate-fade-in-up">
         <h2 className="font-heading text-lg font-semibold tracking-tight">
-          Insight
+          Insight Hari Ini
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {insights.map((insight) => (
+          {currentData.insights.map((insight) => (
             <Card key={insight.title}>
               <CardContent>
                 <div className="flex items-start gap-3">
