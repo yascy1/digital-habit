@@ -24,16 +24,19 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   })
 
   function onSubmit(data: LoginForm) {
     const users = JSON.parse(localStorage.getItem("digital-habit-users") ?? "[]")
-    const found = users.find((u: { email: string; name: string }) => u.email === data.email)
-    const name = found?.name ?? "Pengguna"
-    localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name }))
-    saveProfile({ name: name.split(" ")[0], fullName: name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
+    const found = users.find((u: { email: string; name: string; password?: string }) => u.email === data.email)
+    if (!found || found.password !== data.password) {
+      setError("root", { message: "Email atau password salah/tidak terdaftar" })
+      return
+    }
+    localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name: found.name }))
     router.push("/dashboard")
   }
 
@@ -51,6 +54,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+              {errors.root && (
+                <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {errors.root.message}
+                </div>
+              )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
