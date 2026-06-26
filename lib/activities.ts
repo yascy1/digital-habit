@@ -48,11 +48,7 @@ export function getProfile(): UserProfile {
   if (typeof window === "undefined") return defaultProfile
   try {
     const raw = localStorage.getItem(PROFILE_KEY)
-    if (raw) return { ...defaultProfile, ...JSON.parse(raw) }
-    const session = JSON.parse(localStorage.getItem("digital-habit-user") ?? "{}")
-    const email = session.email ?? ""
-    const fallbackName = email ? email.split("@")[0] : "Pengguna"
-    return { ...defaultProfile, name: fallbackName, fullName: fallbackName, email }
+    return raw ? { ...defaultProfile, ...JSON.parse(raw) } : defaultProfile
   } catch {
     return defaultProfile
   }
