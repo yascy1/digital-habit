@@ -110,7 +110,6 @@ function computeDaySummaries(activities: Activity[]): DaySummary[] {
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-const periods = ["Harian", "Mingguan", "Bulanan"] as const
 const ROWS_OPTIONS = [6, 12, 24]
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -123,7 +122,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 
 export default function RiwayatPage() {
   const [activities, setActivities] = useState<Activity[]>([])
-  const [activePeriod, setActivePeriod] = useState<string>("Harian")
+  const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
@@ -232,49 +231,28 @@ export default function RiwayatPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">
-          {periods.map((period) => (
-            <button
-              key={period}
-              onClick={() => setActivePeriod(period)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                activePeriod === period
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {period}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-            <IconCalendar className="size-4 text-muted-foreground" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value)
-                setPage(1)
-              }}
-              className="bg-transparent text-sm outline-none"
-            />
-            <span className="text-muted-foreground">—</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value)
-                setPage(1)
-              }}
-              className="bg-transparent text-sm outline-none"
-            />
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5">
+      <div className="flex items-center justify-end">
+        <div className="relative">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowFilterPopover(!showFilterPopover)}>
             <IconFilter className="size-3.5" />
             Filter
           </Button>
+          {showFilterPopover && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border bg-background p-4 shadow-md">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                  <IconCalendar className="size-4 text-muted-foreground" />
+                  <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} className="bg-transparent text-sm outline-none" />
+                </div>
+                <span className="text-xs text-muted-foreground text-center">sampai</span>
+                <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                  <IconCalendar className="size-4 text-muted-foreground" />
+                  <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} className="bg-transparent text-sm outline-none" />
+                </div>
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
