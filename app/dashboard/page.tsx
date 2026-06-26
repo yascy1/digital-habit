@@ -249,7 +249,7 @@ function computeStats(allActivities: Activity[], period: string, datePicker: str
         value: currentTotal > 0 ? formatMinutes(currentTotal) : "0j 0m",
         trend: previousTotal === 0
           ? "Belum ada data pembanding"
-          : `${pctScreenTime !== null && pctScreenTime >= 0 ? "?" : "?"} ${Math.abs(pctScreenTime ?? 0)}% dari ${periodLabel}`,
+          : `${pctScreenTime !== null && pctScreenTime >= 0 ? "▲" : "▼"} ${Math.abs(pctScreenTime ?? 0)}% dari ${periodLabel}`,
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
       },
@@ -267,7 +267,7 @@ function computeStats(allActivities: Activity[], period: string, datePicker: str
         value: currentTotal > 0 ? formatMinutes(currentAvg) : "0j 0m",
         trend: previousTotal === 0
           ? "Belum ada data pembanding"
-          : `${pctAvg !== null && pctAvg >= 0 ? "?" : "?"} ${Math.abs(pctAvg ?? 0)}% dari ${periodLabel}`,
+          : `${pctAvg !== null && pctAvg >= 0 ? "▲" : "▼"} ${Math.abs(pctAvg ?? 0)}% dari ${periodLabel}`,
         iconBg: "bg-amber-100",
         iconColor: "text-amber-600",
       },
