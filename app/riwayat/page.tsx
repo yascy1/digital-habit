@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import {
   IconEye,
+  IconFilter,
+  IconCalendar,
   IconChevronLeft,
   IconChevronRight,
   IconHistory,
@@ -122,6 +124,8 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 export default function RiwayatPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [activePeriod, setActivePeriod] = useState<string>("Harian")
+  const [dateFrom, setDateFrom] = useState<string>("")
+  const [dateTo, setDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(6)
   const [selectedDay, setSelectedDay] = useState<DaySummary | null>(null)
@@ -195,18 +199,12 @@ export default function RiwayatPage() {
   }, [])
 
   const filteredActivities = useMemo(() => {
-    const now = new Date()
-    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`
-    const days = activePeriod === "Harian" ? 1 : activePeriod === "Mingguan" ? 7 : 30
-    const range: string[] = []
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      range.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`)
-    }
-    const set = new Set(range)
-    return activities.filter((a) => set.has(a.date))
-  }, [activities, activePeriod])
+    return activities.filter((a) => {
+      if (dateFrom && a.date < dateFrom) return false
+      if (dateTo && a.date > dateTo) return false
+      return true
+    })
+  }, [activities, dateFrom, dateTo])
 
   const summaries = useMemo(
     () => computeDaySummaries(filteredActivities),
@@ -249,6 +247,34 @@ export default function RiwayatPage() {
               {period}
             </button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+            <IconCalendar className="size-4 text-muted-foreground" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setPage(1)
+              }}
+              className="bg-transparent text-sm outline-none"
+            />
+            <span className="text-muted-foreground">—</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setPage(1)
+              }}
+              className="bg-transparent text-sm outline-none"
+            />
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <IconFilter className="size-3.5" />
+            Filter
+          </Button>
         </div>
       </div>
 
