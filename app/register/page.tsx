@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { saveProfile } from "@/lib/activities"
 
 const registerSchema = z.object({
   name: z.string().min(1, "Nama harus diisi"),
@@ -37,6 +38,7 @@ export default function RegisterPage() {
     users.push({ name: data.name, email: data.email })
     localStorage.setItem("digital-habit-users", JSON.stringify(users))
     localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name: data.name }))
+    saveProfile({ name: data.name.split(" ")[0], fullName: data.name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
     router.push("/dashboard")
   }
 
