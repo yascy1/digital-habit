@@ -41,7 +41,7 @@ export function AppSidebar() {
 
   function handleLogout() {
     localStorage.removeItem("digital-habit-user")
-    router.push("/login")
+    router.push("/")
   }
 
   return (
