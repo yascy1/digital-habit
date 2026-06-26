@@ -125,6 +125,8 @@ export default function RiwayatPage() {
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
+  const [draftDateFrom, setDraftDateFrom] = useState<string>("")
+  const [draftDateTo, setDraftDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(6)
   const [selectedDay, setSelectedDay] = useState<DaySummary | null>(null)
@@ -242,14 +244,15 @@ export default function RiwayatPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
                   <IconCalendar className="size-4 text-muted-foreground" />
-                  <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} className="bg-transparent text-sm outline-none" />
+                  <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="bg-transparent text-sm outline-none" />
                 </div>
                 <span className="text-xs text-muted-foreground text-center">sampai</span>
                 <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
                   <IconCalendar className="size-4 text-muted-foreground" />
-                  <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} className="bg-transparent text-sm outline-none" />
+                  <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="bg-transparent text-sm outline-none" />
                 </div>
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
+                <Button size="sm" className="w-full" onClick={() => { setDateFrom(draftDateFrom); setDateTo(draftDateTo); setPage(1); setShowFilterPopover(false) }}>Terapkan</Button>
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
               </div>
             </div>
           )}
