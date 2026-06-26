@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
 import {
   IconLayoutDashboard,
@@ -35,7 +36,13 @@ const menuItems = [
 ]
 
 export function AppSidebar() {
+  const router = useRouter()
   const pathname = usePathname()
+
+  function handleLogout() {
+    localStorage.removeItem("digital-habit-user")
+    router.push("/")
+  }
 
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -91,7 +98,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="px-3 pb-6">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
           <IconLogout className="size-4" />
           Logout
         </button>
