@@ -253,7 +253,6 @@ export default function RiwayatPage() {
           {showFilterPopover && (
             <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/[.04]">
               <div className="px-5 pt-5 pb-4">
-                <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rentang Tanggal</p>
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
                     <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
