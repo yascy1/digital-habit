@@ -39,10 +39,10 @@ import {
 } from "@/lib/activities"
 
 const categoryBadgeStyles: Record<string, string> = {
-  "media-sosial": "bg-blue-100 text-blue-700",
-  "belajar-kerja": "bg-red-100 text-red-700",
-  hiburan: "bg-orange-100 text-orange-700",
-  gaming: "bg-green-100 text-green-700",
+  "media-sosial": "bg-orange-100 text-orange-700",
+  "belajar-kerja": "bg-green-100 text-green-700",
+  hiburan: "bg-purple-100 text-purple-700",
+  gaming: "bg-red-100 text-red-700",
   lainnya: "bg-gray-100 text-gray-700",
 }
 
