@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -24,19 +25,25 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-    setError,
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   })
+  const [loginError, setLoginError] = useState("")
 
   function onSubmit(data: LoginForm) {
+    setLoginError("")
     const users = JSON.parse(localStorage.getItem("digital-habit-users") ?? "[]")
-    const found = users.find((u: { email: string; name: string; password?: string }) => u.email === data.email)
-    if (!found || found.password !== data.password) {
-      setError("root", { message: "Email atau password salah/tidak terdaftar" })
+    const found = users.find((u: { email: string; password: string }) => u.email === data.email)
+    if (!found) {
+      setLoginError("Email belum terdaftar. Silakan daftar terlebih dahulu.")
+      return
+    }
+    if (found.password !== data.password) {
+      setLoginError("Email atau password salah.")
       return
     }
     localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name: found.name }))
+    saveProfile({ name: found.name.split(" ")[0], fullName: found.name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
     router.push("/dashboard")
   }
 
@@ -54,11 +61,6 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-              {errors.root && (
-                <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  {errors.root.message}
-                </div>
-              )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -86,6 +88,10 @@ export default function LoginPage() {
                 <p className="text-xs text-destructive">{errors.password.message}</p>
               )}
             </div>
+
+            {loginError && (
+              <p className="text-sm text-destructive text-center">{loginError}</p>
+            )}
 
             <Button type="submit" className="mt-2 w-full">
               Masuk
