@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { saveProfile } from "@/lib/activities"
 
 const loginSchema = z.object({
   email: z.email("Email tidak valid"),
@@ -28,7 +29,11 @@ export default function LoginPage() {
   })
 
   function onSubmit(data: LoginForm) {
-    localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email }))
+    const users = JSON.parse(localStorage.getItem("digital-habit-users") ?? "[]")
+    const found = users.find((u: { email: string; name: string }) => u.email === data.email)
+    const name = found?.name ?? "Pengguna"
+    localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name }))
+    saveProfile({ name: name.split(" ")[0], fullName: name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
     router.push("/dashboard")
   }
 
