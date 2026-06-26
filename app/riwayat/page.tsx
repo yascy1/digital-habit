@@ -124,7 +124,6 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 export default function RiwayatPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [activePeriod, setActivePeriod] = useState<string>("Harian")
-  const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
@@ -234,7 +233,7 @@ export default function RiwayatPage() {
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="hidden sm:flex gap-2">
+        <div className="flex gap-2">
           {periods.map((period) => (
             <button
               key={period}
@@ -249,7 +248,7 @@ export default function RiwayatPage() {
             </button>
           ))}
         </div>
-        <div className="relative flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
             <IconCalendar className="size-4 text-muted-foreground" />
             <input
@@ -272,30 +271,10 @@ export default function RiwayatPage() {
               className="bg-transparent text-sm outline-none"
             />
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5 sm:hidden" onClick={() => setShowFilterPopover(!showFilterPopover)}>
+          <Button variant="outline" size="sm" className="gap-1.5">
             <IconFilter className="size-3.5" />
             Filter
           </Button>
-          {showFilterPopover && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-40 rounded-lg border bg-background p-2 shadow-md">
-              {periods.map((period) => (
-                <button
-                  key={period}
-                  onClick={() => {
-                    setActivePeriod(period)
-                    setShowFilterPopover(false)
-                  }}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                    activePeriod === period
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {period}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
