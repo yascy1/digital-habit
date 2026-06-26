@@ -36,10 +36,10 @@ export function deleteActivity(id: string): void {
 }
 
 const defaultProfile: UserProfile = {
-  name: "Tyas",
-  fullName: "Tyas Likwantoro",
-  email: "s.kesumaningtyas.l@email.com",
-  joinDate: "12 Juni 2026",
+  name: "",
+  fullName: "",
+  email: "",
+  joinDate: "",
   avatarUrl: "",
   bannerId: "blue",
 }
@@ -47,8 +47,11 @@ const defaultProfile: UserProfile = {
 export function getProfile(): UserProfile {
   if (typeof window === "undefined") return defaultProfile
   try {
+    const session = JSON.parse(localStorage.getItem("digital-habit-user") ?? "{}")
+    if (!session.email) return defaultProfile
     const raw = localStorage.getItem(PROFILE_KEY)
-    return raw ? { ...defaultProfile, ...JSON.parse(raw) } : defaultProfile
+    if (raw) return { ...defaultProfile, ...JSON.parse(raw) }
+    return { ...defaultProfile, name: session.name ?? "", fullName: session.name ?? "", email: session.email }
   } catch {
     return defaultProfile
   }
