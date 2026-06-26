@@ -235,24 +235,41 @@ export default function RiwayatPage() {
 
       <div className="flex items-center justify-end">
         <div className="relative">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowFilterPopover(!showFilterPopover)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`gap-1.5 transition-colors ${showFilterPopover ? "border-primary/40 bg-primary/5 text-primary" : ""}`}
+            onClick={() => {
+              if (!showFilterPopover) {
+                setDraftDateFrom(dateFrom)
+                setDraftDateTo(dateTo)
+              }
+              setShowFilterPopover(!showFilterPopover)
+            }}
+          >
             <IconFilter className="size-3.5" />
             Filter
           </Button>
           {showFilterPopover && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border bg-background p-4 shadow-md">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-                  <IconCalendar className="size-4 text-muted-foreground" />
-                  <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="bg-transparent text-sm outline-none" />
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/[.04]">
+              <div className="px-5 pt-5 pb-4">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rentang Tanggal</p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                    <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Dari</span>
+                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                  </div>
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                    <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Sampai</span>
+                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground text-center">sampai</span>
-                <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-                  <IconCalendar className="size-4 text-muted-foreground" />
-                  <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="bg-transparent text-sm outline-none" />
-                </div>
-                <Button size="sm" className="w-full" onClick={() => { setDateFrom(draftDateFrom); setDateTo(draftDateTo); setPage(1); setShowFilterPopover(false) }}>Terapkan</Button>
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
+              </div>
+              <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
+                <Button size="sm" className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]" onClick={() => { setDateFrom(draftDateFrom); setDateTo(draftDateTo); setPage(1); setShowFilterPopover(false) }}>Terapkan</Button>
               </div>
             </div>
           )}
