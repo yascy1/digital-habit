@@ -35,7 +35,7 @@ export default function RegisterPage() {
 
   function onSubmit(data: RegisterForm) {
     const users = JSON.parse(localStorage.getItem("digital-habit-users") ?? "[]")
-    users.push({ name: data.name, email: data.email })
+    users.push({ name: data.name, email: data.email, password: data.password })
     localStorage.setItem("digital-habit-users", JSON.stringify(users))
     localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name: data.name }))
     saveProfile({ name: data.name.split(" ")[0], fullName: data.name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
