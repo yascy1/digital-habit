@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import {
   IconEye,
@@ -110,7 +110,7 @@ function computeDaySummaries(activities: Activity[]): DaySummary[] {
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-const ROWS_OPTIONS = [6, 12, 24]
+const ROWS_OPTIONS = [5, 10, 15, 20]
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   "media-sosial": IconSocial,
@@ -128,7 +128,7 @@ export default function RiwayatPage() {
   const [draftDateFrom, setDraftDateFrom] = useState<string>("")
   const [draftDateTo, setDraftDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(6)
+  const [rowsPerPage, setRowsPerPage] = useState(5)
   const [selectedDay, setSelectedDay] = useState<DaySummary | null>(null)
   const [selectedDayActivities, setSelectedDayActivities] = useState<Activity[]>([])
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
@@ -141,6 +141,18 @@ export default function RiwayatPage() {
   const [addHours, setAddHours] = useState("")
   const [addMinutes, setAddMinutes] = useState("")
   const [addNotes, setAddNotes] = useState("")
+  const filterRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showFilterPopover) return
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilterPopover(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPopover])
 
   function startEdit(activity: Activity) {
     setEditingActivity(activity)
@@ -234,7 +246,7 @@ export default function RiwayatPage() {
       </div>
 
       <div className="flex items-center justify-end">
-        <div className="relative">
+        <div className="relative" ref={filterRef}>
           <Button
             variant="outline"
             size="sm"
@@ -251,24 +263,49 @@ export default function RiwayatPage() {
             Filter
           </Button>
           {showFilterPopover && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/[.04]">
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 animate-fade-in-up overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-lg shadow-black/[.04]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
                     <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Dari</span>
-                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                    <span className="text-xs text-muted-foreground">Start Date</span>
+                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
                   </div>
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
                     <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Sampai</span>
-                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                    <span className="text-xs text-muted-foreground">End Date</span>
+                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
                   </div>
                 </div>
               </div>
               <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
-                <Button size="sm" className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]" onClick={() => { setDateFrom(draftDateFrom); setDateTo(draftDateTo); setPage(1); setShowFilterPopover(false) }}>Terapkan</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setDraftDateFrom("")
+                    setDraftDateTo("")
+                    setDateFrom("")
+                    setDateTo("")
+                    setPage(1)
+                    setShowFilterPopover(false)
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]"
+                  onClick={() => {
+                    setDateFrom(draftDateFrom)
+                    setDateTo(draftDateTo)
+                    setPage(1)
+                    setShowFilterPopover(false)
+                  }}
+                >
+                  Apply
+                </Button>
               </div>
             </div>
           )}
