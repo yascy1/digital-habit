@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { saveProfile } from "@/lib/activities"
-
 const loginSchema = z.object({
   email: z.email("Email tidak valid"),
   password: z.string().min(8, "Password minimal 8 karakter"),
@@ -43,7 +41,6 @@ export default function LoginPage() {
       return
     }
     localStorage.setItem("digital-habit-user", JSON.stringify({ email: data.email, name: found.name }))
-    saveProfile({ name: found.name.split(" ")[0], fullName: found.name, email: data.email, joinDate: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }), avatarUrl: "", bannerId: "blue" })
     router.push("/dashboard")
   }
 
