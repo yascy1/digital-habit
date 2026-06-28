@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import {
   IconEye,
@@ -18,7 +18,11 @@ import {
   IconDeviceGamepad2,
   IconDots,
   IconSchool,
+  IconDownload,
 } from "@tabler/icons-react"
+import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
+import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,9 +34,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import type { Activity } from "@/lib/types"
 import {
   getActivities,
+  getProfile,
   saveActivity,
   updateActivity,
   deleteActivity as deleteActivityFn,
@@ -70,6 +80,33 @@ function formatShortDate(dateStr: string): string {
     month: "long",
     year: "numeric",
   })
+}
+
+function formatDateId(date: Date): string {
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+}
+
+function formatTimestamp(date: Date): string {
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }) + ", " + date.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+}
+
+function toISODate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
 }
 
 interface DaySummary {
@@ -110,7 +147,7 @@ function computeDaySummaries(activities: Activity[]): DaySummary[] {
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-const ROWS_OPTIONS = [6, 12, 24]
+const ROWS_OPTIONS = [5, 10, 15, 20]
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   "media-sosial": IconSocial,
@@ -128,7 +165,7 @@ export default function RiwayatPage() {
   const [draftDateFrom, setDraftDateFrom] = useState<string>("")
   const [draftDateTo, setDraftDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(6)
+  const [rowsPerPage, setRowsPerPage] = useState(5)
   const [selectedDay, setSelectedDay] = useState<DaySummary | null>(null)
   const [selectedDayActivities, setSelectedDayActivities] = useState<Activity[]>([])
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
@@ -141,6 +178,21 @@ export default function RiwayatPage() {
   const [addHours, setAddHours] = useState("")
   const [addMinutes, setAddMinutes] = useState("")
   const [addNotes, setAddNotes] = useState("")
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportDateFrom, setExportDateFrom] = useState("")
+  const [exportDateTo, setExportDateTo] = useState("")
+  const filterRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showFilterPopover) return
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilterPopover(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPopover])
 
   function startEdit(activity: Activity) {
     setEditingActivity(activity)
@@ -194,6 +246,144 @@ export default function RiwayatPage() {
     setIsAdding(false)
   }
 
+  function handleExportPDF() {
+    if (!exportDateFrom || !exportDateTo) {
+      toast.error("Pilih tanggal mulai dan tanggal akhir terlebih dahulu.")
+      return
+    }
+    if (exportDateFrom > exportDateTo) {
+      toast.error("Tanggal mulai tidak boleh setelah tanggal akhir.")
+      return
+    }
+
+    const allActivities = getActivities()
+    const filtered = allActivities.filter(
+      (a) => a.date >= exportDateFrom && a.date <= exportDateTo
+    )
+
+    if (filtered.length === 0) {
+      toast.error("Tidak ada data pada rentang tanggal ini")
+      return
+    }
+
+    const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date))
+    const profile = getProfile()
+    const userName = profile.fullName || profile.name || "-"
+    const now = new Date()
+
+    let totalMinutes = 0
+    const categoryMinutes: Record<string, number> = {}
+    for (const a of sorted) {
+      const mins = a.durationHours * 60 + a.durationMinutes
+      totalMinutes += mins
+      categoryMinutes[a.category] = (categoryMinutes[a.category] ?? 0) + mins
+    }
+
+    let dominantCategory = "lainnya"
+    let maxMins = 0
+    for (const [cat, mins] of Object.entries(categoryMinutes)) {
+      if (mins > maxMins) {
+        maxMins = mins
+        dominantCategory = cat
+      }
+    }
+
+    const totalH = Math.floor(totalMinutes / 60)
+    const totalM = totalMinutes % 60
+    const totalDurasiStr = `${totalH}j ${totalM}m`
+    const totalEntriStr = String(sorted.length)
+    const kategoriDominanStr = categoryLabels[dominantCategory] ?? "Lainnya"
+
+    const fromDisplay = formatDateId(new Date(exportDateFrom + "T00:00:00"))
+    const toDisplay = formatDateId(new Date(exportDateTo + "T00:00:00"))
+    const timestampStr = formatTimestamp(now)
+
+    const doc = new jsPDF("p", "mm", "a4")
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 15
+
+    doc.setFontSize(18)
+    doc.setFont("helvetica", "bold")
+    doc.text("Digital Habit", margin, 20)
+
+    doc.setFontSize(11)
+    doc.setFont("helvetica", "normal")
+    doc.text("Laporan riwayat aktivitas screen time", margin, 28)
+
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "normal")
+    doc.text(`Nama: ${userName}`, margin, 37)
+    doc.text(`Rentang: ${fromDisplay} - ${toDisplay}`, margin, 43)
+    doc.text(`Dicetak: ${timestampStr}`, margin, 49)
+
+    const boxY = 56
+    const boxH = 18
+    const boxW = (pageWidth - margin * 2 - 8) / 3
+    const boxes = [
+      { label: "Total durasi", value: totalDurasiStr },
+      { label: "Total entri", value: totalEntriStr },
+      { label: "Kategori dominan", value: kategoriDominanStr },
+    ]
+    boxes.forEach((box, i) => {
+      const x = margin + i * (boxW + 4)
+      doc.setFillColor(245, 245, 245)
+      doc.roundedRect(x, boxY, boxW, boxH, 2, 2, "F")
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(120, 120, 120)
+      doc.text(box.label, x + 4, boxY + 6)
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(30, 30, 30)
+      doc.text(box.value, x + 4, boxY + 13)
+    })
+
+    const tableStartY = boxY + boxH + 10
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [["Tanggal", "Kategori", "Durasi", "Catatan"]],
+      body: sorted.map((a) => [
+        formatShortDate(a.date),
+        categoryLabels[a.category] ?? a.category,
+        `${a.durationHours}j ${a.durationMinutes}m`,
+        a.notes || "-",
+      ]),
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [50, 50, 50],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { cellWidth: 32 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: "auto", overflow: "linebreak" },
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: (data) => {
+        const pageCount = doc.getNumberOfPages()
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "normal")
+        doc.text(
+          `Halaman ${data.pageNumber} dari ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: "center" }
+        )
+      },
+    })
+
+    const fileName = `riwayat_${exportDateFrom}_${exportDateTo}.pdf`
+    doc.save(fileName)
+    toast.success("PDF berhasil diunduh!")
+    setExportOpen(false)
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActivities(getActivities())
@@ -233,8 +423,56 @@ export default function RiwayatPage() {
         </p>
       </div>
 
-      <div className="flex items-center justify-end">
-        <div className="relative">
+      <div className="flex items-center justify-end gap-2">
+        <Popover open={exportOpen} onOpenChange={setExportOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <IconDownload className="size-3.5" />
+              Ekspor PDF
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="end">
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium">Pilih Rentang Tanggal</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                  <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Start Date</span>
+                  <input
+                    type="date"
+                    value={exportDateFrom}
+                    onChange={(e) => setExportDateFrom(e.target.value)}
+                    className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
+                  />
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                  <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">End Date</span>
+                  <input
+                    type="date"
+                    value={exportDateTo}
+                    onChange={(e) => setExportDateTo(e.target.value)}
+                    className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExportOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button size="sm" className="gap-1.5" onClick={handleExportPDF}>
+                  <IconDownload className="size-3.5" />
+                  Ekspor
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <div className="relative" ref={filterRef}>
           <Button
             variant="outline"
             size="sm"
@@ -251,24 +489,49 @@ export default function RiwayatPage() {
             Filter
           </Button>
           {showFilterPopover && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/[.04]">
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 animate-fade-in-up overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-lg shadow-black/[.04]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
                     <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Dari</span>
-                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                    <span className="text-xs text-muted-foreground">Start Date</span>
+                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
                   </div>
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-zinc-50/80 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-white">
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
                     <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Sampai</span>
-                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none" />
+                    <span className="text-xs text-muted-foreground">End Date</span>
+                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
                   </div>
                 </div>
               </div>
               <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setShowFilterPopover(false) }}>Reset</Button>
-                <Button size="sm" className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]" onClick={() => { setDateFrom(draftDateFrom); setDateTo(draftDateTo); setPage(1); setShowFilterPopover(false) }}>Terapkan</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setDraftDateFrom("")
+                    setDraftDateTo("")
+                    setDateFrom("")
+                    setDateTo("")
+                    setPage(1)
+                    setShowFilterPopover(false)
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]"
+                  onClick={() => {
+                    setDateFrom(draftDateFrom)
+                    setDateTo(draftDateTo)
+                    setPage(1)
+                    setShowFilterPopover(false)
+                  }}
+                >
+                  Apply
+                </Button>
               </div>
             </div>
           )}
