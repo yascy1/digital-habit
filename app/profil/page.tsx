@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useRef } from "react"
 import {
@@ -70,9 +70,9 @@ function getBannerGradient(id: string): string {
 }
 
 const defaultProfile: UserProfile = {
-  name: "Tyas",
-  fullName: "Tyas Likwantoro",
-  email: "s.kesumaningtyas.l@email.com",
+  name: "",
+  fullName: "",
+  email: "",
   joinDate: "12 Juni 2026",
   avatarUrl: "",
   bannerId: "blue",
@@ -290,8 +290,9 @@ export default function ProfilPage() {
                   <Input
                     type="email"
                     value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
+                    disabled
                   />
+                  <span className="text-xs text-muted-foreground">Email tidak dapat diubah karena digunakan sebagai identitas akun.</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 justify-end">
