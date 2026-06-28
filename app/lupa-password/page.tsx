@@ -113,7 +113,7 @@ export default function LupaPasswordPage() {
               </Button>
             </div>
           ) : step === "email" ? (
-            <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="flex flex-col gap-4">
+            <form key={step} onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-semibold">Lupa Password</h2>
                 <p className="text-sm text-muted-foreground">
@@ -126,7 +126,6 @@ export default function LupaPasswordPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="nama@email.com"
                   aria-invalid={!!emailForm.formState.errors.email || !!error}
                   {...emailForm.register("email")}
                 />
@@ -149,11 +148,17 @@ export default function LupaPasswordPage() {
               </p>
             </form>
           ) : step === "verify" ? (
-            <form onSubmit={verifyForm.handleSubmit(onVerifySubmit)} className="flex flex-col gap-4">
+            <form key={step} onSubmit={verifyForm.handleSubmit(onVerifySubmit)} className="flex flex-col gap-4">
+              {/* JEBAKAN AUTOFILL CHROME */}
+              <div className="absolute -z-10 h-0 w-0 overflow-hidden opacity-0" aria-hidden="true">
+                <input type="email" name="fake_email_trap" tabIndex={-1} />
+                <input type="password" name="fake_password_trap" tabIndex={-1} />
+              </div>
+
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-semibold">Verifikasi Identitas</h2>
                 <p className="text-sm text-muted-foreground">
-                  Masukkan nama lengkap Anda untuk verifikasi.
+                  Masukkan nama lengkap sesuai dengan akun Anda untuk verifikasi.
                 </p>
               </div>
 
@@ -162,8 +167,7 @@ export default function LupaPasswordPage() {
                 <Input
                   id="name"
                   type="text"
-                  autoComplete="off"
-                  placeholder="Nama lengkap sesuai akun"
+                  autoComplete="new-password"
                   aria-invalid={!!verifyForm.formState.errors.name || !!error}
                   {...verifyForm.register("name")}
                 />
@@ -190,7 +194,13 @@ export default function LupaPasswordPage() {
               </p>
             </form>
           ) : (
-            <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="flex flex-col gap-4">
+            <form key={step} onSubmit={resetForm.handleSubmit(onResetSubmit)} className="flex flex-col gap-4">
+              {/* JEBAKAN AUTOFILL CHROME */}
+              <div className="absolute -z-10 h-0 w-0 overflow-hidden opacity-0" aria-hidden="true">
+                <input type="email" name="fake_email_trap_2" tabIndex={-1} />
+                <input type="password" name="fake_password_trap_2" tabIndex={-1} />
+              </div>
+
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-semibold">Reset Password</h2>
                 <p className="text-sm text-muted-foreground">
