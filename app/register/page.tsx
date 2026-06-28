@@ -61,7 +61,6 @@ export default function RegisterPage() {
               <Input
                 id="name"
                 type="text"
-                placeholder="Nama lengkap"
                 aria-invalid={!!errors.name}
                 {...register("name")}
               />
@@ -75,7 +74,6 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="nama@email.com"
                 aria-invalid={!!errors.email}
                 {...register("email")}
               />
@@ -89,7 +87,6 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Minimal 8 karakter"
                 aria-invalid={!!errors.password}
                 {...register("password")}
               />
@@ -103,7 +100,6 @@ export default function RegisterPage() {
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Ulangi password"
                 aria-invalid={!!errors.confirmPassword}
                 {...register("confirmPassword")}
               />

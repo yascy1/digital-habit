@@ -145,7 +145,7 @@ export default function ProfilPage() {
     <div suppressHydrationWarning className="flex flex-col gap-6 p-6">
       {/* Profile Header */}
       <Card className="overflow-hidden">
-        <div className={`h-28 bg-gradient-to-r ${getBannerGradient(profile.bannerId)}`} />
+        <div className={`h-28 bg-linear-to-r ${getBannerGradient(profile.bannerId)}`} />
         <CardContent className="relative -mt-14 flex items-end justify-between pb-6">
           <div className="flex items-center gap-5">
             <div className="relative group">
@@ -292,8 +292,7 @@ export default function ProfilPage() {
                     value={editEmail}
                     disabled
                   />
-                  <span className="text-xs text-muted-foreground">Email tidak dapat diubah karena digunakan sebagai identitas akun.</span>
-                </div>
+                 </div>
               </div>
               <div className="flex items-center gap-3 justify-end">
                 {saved && (

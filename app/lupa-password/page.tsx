@@ -158,7 +158,7 @@ export default function LupaPasswordPage() {
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-semibold">Verifikasi Identitas</h2>
                 <p className="text-sm text-muted-foreground">
-                  Masukkan nama lengkap sesuai dengan akun Anda untuk verifikasi.
+                  Masukkan nama sesuai dengan akun Anda untuk verifikasi.
                 </p>
               </div>
 

@@ -63,7 +63,6 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="nama@email.com"
                 aria-invalid={!!errors.email}
                 {...register("email")}
               />
@@ -77,7 +76,6 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Masukkan password"
                 aria-invalid={!!errors.password}
                 {...register("password")}
               />

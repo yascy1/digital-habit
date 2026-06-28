@@ -465,7 +465,7 @@ export default function DashboardPage() {
             <CardDescription>{donutLabel}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full">
+            <div className="h-75 w-full">
               <ChartContainer config={donutChartConfig} className="h-full w-full">
                 <PieChart>
                   <ChartTooltip
@@ -507,7 +507,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
+              <div className="h-75 w-full">
                 <ChartContainer config={lineChartConfig} className="h-full w-full">
                   <LineChart
                     data={lineData}
