@@ -162,6 +162,7 @@ export default function LupaPasswordPage() {
                 <Input
                   id="name"
                   type="text"
+                  autoComplete="off"
                   placeholder="Nama lengkap sesuai akun"
                   aria-invalid={!!verifyForm.formState.errors.name || !!error}
                   {...verifyForm.register("name")}
@@ -202,6 +203,7 @@ export default function LupaPasswordPage() {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Minimal 8 karakter"
                   aria-invalid={!!resetForm.formState.errors.password}
                   {...resetForm.register("password")}
@@ -216,6 +218,7 @@ export default function LupaPasswordPage() {
                 <Input
                   id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Ulangi password"
                   aria-invalid={!!resetForm.formState.errors.confirmPassword}
                   {...resetForm.register("confirmPassword")}
