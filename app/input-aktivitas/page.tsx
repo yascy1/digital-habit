@@ -22,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { saveActivities } from "@/lib/activities"
 import type { Activity } from "@/lib/types"
+import { updateStreak } from "@/lib/streak"
+import { toast } from "sonner"
 
 const categories = [
   { id: "media-sosial", label: "Media Sosial", icon: IconSocial },
@@ -78,6 +80,8 @@ export default function InputAktivitasPage() {
   const handleSaveAll = () => {
     if (pendingList.length === 0) return
     saveActivities(pendingList)
+    updateStreak()
+    toast.success("Aktivitas tersimpan!")
     router.push("/riwayat")
   }
 
@@ -110,11 +114,10 @@ export default function InputAktivitasPage() {
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                      selectedCategory === cat.id
+                    className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${selectedCategory === cat.id
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
+                      }`}
                   >
                     <cat.icon className="size-4" />
                     {cat.label}

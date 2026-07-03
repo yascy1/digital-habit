@@ -19,6 +19,7 @@ import {
   IconDots,
   IconSchool,
   IconDownload,
+  IconX, // Tambahan IconX untuk badge filter
 } from "@tabler/icons-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -47,7 +48,20 @@ import {
   updateActivity,
   deleteActivity as deleteActivityFn,
 } from "@/lib/activities"
+import { updateStreak } from "@/lib/streak"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
+// ... (Seluruh variabel konstan di atas tetap sama: categoryBadgeStyles, dll.)
 const categoryBadgeStyles: Record<string, string> = {
   "media-sosial": "bg-orange-100 text-orange-700",
   "belajar-kerja": "bg-green-100 text-green-700",
@@ -90,6 +104,11 @@ function formatDateId(date: Date): string {
   })
 }
 
+function formatMonthYear(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00")
+  return date.toLocaleDateString("id-ID", { month: "short", year: "numeric" })
+}
+
 function formatTimestamp(date: Date): string {
   return date.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -119,7 +138,7 @@ interface DaySummary {
 function computeDaySummaries(activities: Activity[]): DaySummary[] {
   const grouped: Record<string, Activity[]> = {}
   for (const a of activities) {
-    ;(grouped[a.date] ??= []).push(a)
+    ; (grouped[a.date] ??= []).push(a)
   }
 
   return Object.entries(grouped)
@@ -179,6 +198,7 @@ export default function RiwayatPage() {
   const [addMinutes, setAddMinutes] = useState("")
   const [addNotes, setAddNotes] = useState("")
   const [exportOpen, setExportOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<"filtered" | "custom">("filtered")
   const [exportDateFrom, setExportDateFrom] = useState("")
   const [exportDateTo, setExportDateTo] = useState("")
   const filterRef = useRef<HTMLDivElement>(null)
@@ -193,6 +213,7 @@ export default function RiwayatPage() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showFilterPopover])
+
 
   function startEdit(activity: Activity) {
     setEditingActivity(activity)
@@ -221,8 +242,13 @@ export default function RiwayatPage() {
 
   function handleDeleteActivity(id: string) {
     deleteActivityFn(id)
-    setActivities(getActivities())
+
+    const remaining = getActivities()
+    setActivities(remaining)
     setSelectedDayActivities((prev) => prev.filter((a) => a.id !== id))
+
+    // Update streak setelah hapus aktivitas
+    updateStreak()
   }
 
   function handleAddActivity() {
@@ -237,6 +263,7 @@ export default function RiwayatPage() {
       createdAt: Date.now(),
     }
     saveActivity(newActivity)
+    updateStreak()
     setActivities(getActivities())
     setSelectedDayActivities((prev) => [...prev, newActivity])
     setAddCategory("")
@@ -247,23 +274,42 @@ export default function RiwayatPage() {
   }
 
   function handleExportPDF() {
-    if (!exportDateFrom || !exportDateTo) {
-      toast.error("Pilih tanggal mulai dan tanggal akhir terlebih dahulu.")
-      return
-    }
-    if (exportDateFrom > exportDateTo) {
-      toast.error("Tanggal mulai tidak boleh setelah tanggal akhir.")
-      return
-    }
-
     const allActivities = getActivities()
-    const filtered = allActivities.filter(
-      (a) => a.date >= exportDateFrom && a.date <= exportDateTo
-    )
 
-    if (filtered.length === 0) {
-      toast.error("Tidak ada data pada rentang tanggal ini")
-      return
+    let filtered: typeof allActivities
+    let fromDisplay: string
+    let toDisplay: string
+    let fileNameDate: string
+
+    if (exportMode === "filtered") {
+      filtered = allActivities
+      if (filtered.length === 0) {
+        toast.error("Tidak ada data riwayat untuk diekspor.")
+        return
+      }
+      const dates = filtered.map((a) => a.date).sort()
+      fromDisplay = formatDateId(new Date(dates[0] + "T00:00:00"))
+      toDisplay = formatDateId(new Date(dates[dates.length - 1] + "T00:00:00"))
+      fileNameDate = "semua"
+    } else {
+      if (!exportDateFrom || !exportDateTo) {
+        toast.error("Pilih tanggal mulai dan tanggal akhir terlebih dahulu.")
+        return
+      }
+      if (exportDateFrom > exportDateTo) {
+        toast.error("Tanggal mulai tidak boleh setelah tanggal akhir.")
+        return
+      }
+      filtered = allActivities.filter(
+        (a) => a.date >= exportDateFrom && a.date <= exportDateTo
+      )
+      if (filtered.length === 0) {
+        toast.error("Tidak ada data pada rentang tanggal ini")
+        return
+      }
+      fromDisplay = formatDateId(new Date(exportDateFrom + "T00:00:00"))
+      toDisplay = formatDateId(new Date(exportDateTo + "T00:00:00"))
+      fileNameDate = `${exportDateFrom}_${exportDateTo}`
     }
 
     const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date))
@@ -294,8 +340,6 @@ export default function RiwayatPage() {
     const totalEntriStr = String(sorted.length)
     const kategoriDominanStr = categoryLabels[dominantCategory] ?? "Lainnya"
 
-    const fromDisplay = formatDateId(new Date(exportDateFrom + "T00:00:00"))
-    const toDisplay = formatDateId(new Date(exportDateTo + "T00:00:00"))
     const timestampStr = formatTimestamp(now)
 
     const doc = new jsPDF("p", "mm", "a4")
@@ -378,14 +422,13 @@ export default function RiwayatPage() {
       },
     })
 
-    const fileName = `riwayat_${exportDateFrom}_${exportDateTo}.pdf`
+    const fileName = `riwayat_${fileNameDate}.pdf`
     doc.save(fileName)
     toast.success("PDF berhasil diunduh!")
     setExportOpen(false)
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActivities(getActivities())
   }, [])
 
@@ -402,6 +445,17 @@ export default function RiwayatPage() {
     [filteredActivities]
   )
 
+  const exportPreview = useMemo(() => {
+    if (exportMode === "filtered") {
+      if (activities.length === 0) return null
+      const dates = activities.map((a) => a.date).sort()
+      return { count: activities.length, from: formatMonthYear(dates[0]), to: formatMonthYear(dates[dates.length - 1]) }
+    }
+    if (!exportDateFrom || !exportDateTo) return null
+    const filtered = activities.filter((a) => a.date >= exportDateFrom && a.date <= exportDateTo)
+    return { count: filtered.length, from: formatMonthYear(exportDateFrom), to: formatMonthYear(exportDateTo) }
+  }, [exportMode, exportDateFrom, exportDateTo, activities])
+
   const totalPages = Math.max(1, Math.ceil(summaries.length / rowsPerPage))
   const safePage = Math.min(page, totalPages)
   const pagedSummaries = summaries.slice(
@@ -414,141 +468,250 @@ export default function RiwayatPage() {
 
   return (
     <div suppressHydrationWarning className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Riwayat Aktivitas
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Lihat catatan penggunaan digitalmu dari waktu ke waktu.
-        </p>
-      </div>
+      {/* HEADER SECTION (Title & Actions) */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900">
+            Riwayat Aktivitas
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Lihat catatan penggunaan digitalmu dari waktu ke waktu.
+          </p>
+        </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Popover open={exportOpen} onOpenChange={setExportOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <IconDownload className="size-3.5" />
-              Ekspor PDF
+        <div className="flex items-center gap-3">
+          <div className="relative" ref={filterRef}>
+            <Button
+              variant="outline"
+              className={`gap-2 rounded-xl px-5 text-sm font-medium transition-colors ${showFilterPopover || dateFrom || dateTo
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-border/60 text-slate-700 hover:bg-slate-50"
+                }`}
+              onClick={() => {
+                if (!showFilterPopover) {
+                  setDraftDateFrom(dateFrom)
+                  setDraftDateTo(dateTo)
+                }
+                setShowFilterPopover(!showFilterPopover)
+              }}
+            >
+              <IconFilter className="size-4" />
+              Filter
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium">Pilih Rentang Tanggal</p>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                  <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Start Date</span>
-                  <input
-                    type="date"
-                    value={exportDateFrom}
-                    onChange={(e) => setExportDateFrom(e.target.value)}
-                    className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
-                  />
+
+            {showFilterPopover && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 animate-fade-in-up overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/4">
+                {/* Konten Filter Popover dibiarkan seperti asli */}
+                <div className="px-5 pt-5 pb-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                      <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Start Date</span>
+                      <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                      <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">End Date</span>
+                      <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                  <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">End Date</span>
-                  <input
-                    type="date"
-                    value={exportDateTo}
-                    onChange={(e) => setExportDateTo(e.target.value)}
-                    className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
-                  />
+                <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => {
+                      setDraftDateFrom("")
+                      setDraftDateTo("")
+                      setDateFrom("")
+                      setDateTo("")
+                      setPage(1)
+                      setShowFilterPopover(false)
+                    }}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="rounded-xl bg-blue-600 px-5 text-xs font-medium text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.98]"
+                    onClick={() => {
+                      setDateFrom(draftDateFrom)
+                      setDateTo(draftDateTo)
+                      setPage(1)
+                      setShowFilterPopover(false)
+                    }}
+                  >
+                    Terapkan
+                  </Button>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setExportOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button size="sm" className="gap-1.5" onClick={handleExportPDF}>
-                  <IconDownload className="size-3.5" />
-                  Ekspor
-                </Button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-        <div className="relative" ref={filterRef}>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`gap-1.5 transition-colors ${showFilterPopover ? "border-primary/40 bg-primary/5 text-primary" : ""}`}
-            onClick={() => {
-              if (!showFilterPopover) {
-                setDraftDateFrom(dateFrom)
-                setDraftDateTo(dateTo)
-              }
-              setShowFilterPopover(!showFilterPopover)
-            }}
-          >
-            <IconFilter className="size-3.5" />
-            Filter
-          </Button>
-          {showFilterPopover && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-80 animate-fade-in-up overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-lg shadow-black/[.04]">
-              <div className="px-5 pt-5 pb-4">
+            )}
+          </div>
+
+          {/* DESAIN BARU EKSPOR PDF MODAL */}
+          <Popover open={exportOpen} onOpenChange={setExportOpen}>
+            <PopoverTrigger asChild>
+              <Button className="gap-2 rounded-xl bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-all">
+                <IconDownload className="size-4" />
+                Ekspor PDF
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-90 rounded-2xl p-5" align="end">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2 text-slate-800">
+                    <IconDownload className="size-4" stroke={2} />
+                    <h3 className="font-semibold text-sm">Ekspor PDF</h3>
+                  </div>
+                  <button
+                    onClick={() => setExportOpen(false)}
+                    className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <IconX className="size-4" />
+                  </button>
+                </div>
+
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                    <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Start Date</span>
-                    <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
-                  </div>
-                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                    <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">End Date</span>
-                    <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
-                  </div>
+                  <p className="text-sm font-medium text-slate-700">Pilih data yang akan diekspor</p>
+
+                  {/* Opsi 1: Semua Data */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+                    <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-blue-600">
+                      {exportMode === "filtered" && <div className="size-2 rounded-full bg-blue-600" />}
+                    </div>
+                    <input
+                      type="radio"
+                      className="hidden"
+                      checked={exportMode === "filtered"}
+                      onChange={() => setExportMode("filtered")}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-900">Semua data</span>
+                      <span className="text-xs text-slate-500 mt-0.5">Seluruh riwayat aktivitasmu dari awal hingga terkini</span>
+                    </div>
+                  </label>
+
+                  {/* Opsi 2: Kustom Data */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+                    <div className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${exportMode === "custom" ? "border-blue-600" : "border-slate-300"}`}>
+                      {exportMode === "custom" && <div className="size-2 rounded-full bg-blue-600" />}
+                    </div>
+                    <input
+                      type="radio"
+                      className="hidden"
+                      checked={exportMode === "custom"}
+                      onChange={() => setExportMode("custom")}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-900">Data sesuai rentang kustom</span>
+                      <span className="text-xs text-slate-500 mt-0.5">Pilih rentang tanggal sendiri</span>
+                    </div>
+                  </label>
+
+                  {/* Input Tanggal Kustom (Muncul jika Opsi 2 Dipilih) */}
+                  {exportMode === "custom" && (
+                    <div className="flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-1">
+                      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                        <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Start Date</span>
+                        <input
+                          type="date"
+                          value={exportDateFrom}
+                          onChange={(e) => setExportDateFrom(e.target.value)}
+                          className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
+                        <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">End Date</span>
+                        <input
+                          type="date"
+                          value={exportDateTo}
+                          onChange={(e) => setExportDateTo(e.target.value)}
+                          className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {exportPreview && (
+                  <p className="text-xs text-slate-500">
+                    {exportPreview.count} entri akan diekspor ({exportPreview.from} – {exportPreview.to})
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl hover:bg-slate-50"
+                    onClick={() => setExportOpen(false)}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    className="w-full gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={handleExportPDF}
+                  >
+                    <IconDownload className="size-4" />
+                    Ekspor PDF
+                  </Button>
                 </div>
               </div>
-              <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => {
-                    setDraftDateFrom("")
-                    setDraftDateTo("")
-                    setDateFrom("")
-                    setDateTo("")
-                    setPage(1)
-                    setShowFilterPopover(false)
-                  }}
-                >
-                  Reset
-                </Button>
-                <Button
-                  size="sm"
-                  className="rounded-xl bg-primary px-5 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]"
-                  onClick={() => {
-                    setDateFrom(draftDateFrom)
-                    setDateTo(draftDateTo)
-                    setPage(1)
-                    setShowFilterPopover(false)
-                  }}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
-          )}
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
+      {/* ACTIVE DATE FILTER BADGE */}
+      {(dateFrom || dateTo) && (
+        <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
+            <IconCalendar className="size-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-slate-700">
+              {dateFrom ? formatShortDate(dateFrom) : "Awal"} - {dateTo ? formatShortDate(dateTo) : "Sekarang"}
+            </span>
+            <button
+              onClick={() => {
+                setDateFrom("")
+                setDateTo("")
+                setDraftDateFrom("")
+                setDraftDateTo("")
+                setPage(1)
+              }}
+              className="ml-2 rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+              <IconX className="size-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              setDateFrom("")
+              setDateTo("")
+              setDraftDateFrom("")
+              setDraftDateTo("")
+              setPage(1)
+            }}
+            className="text-sm font-medium text-blue-600 hover:underline transition-colors"
+          >
+            Reset Filter
+          </button>
+        </div>
+      )}
+
+      {/* TABLE SECTION */}
       {summaries.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-muted">
-              <IconHistory className="size-8 text-muted-foreground" />
+        <Card className="rounded-2xl border-none shadow-sm ring-1 ring-black/5">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-blue-50">
+              <IconHistory className="size-8 text-blue-400" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold">Belum ada aktivitas</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className="mt-4 text-lg font-semibold text-slate-800">Belum ada aktivitas</h2>
+            <p className="mt-1 text-sm text-slate-500">
               Mulai catat aktivitas digitalmu untuk melihat riwayat di sini.
             </p>
-            <Button asChild className="mt-4 gap-2">
+            <Button asChild className="mt-6 gap-2 bg-blue-600 rounded-xl hover:bg-blue-700">
               <Link href="/input-aktivitas">
                 <IconPlus className="size-4" />
                 Input Aktivitas
@@ -557,41 +720,43 @@ export default function RiwayatPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="rounded-2xl border-none shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
+                {/* Header tabel dibiarkan sama */}
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="px-6 py-3 font-medium">Tanggal</th>
-                  <th className="px-6 py-3 font-medium">Total Screen Time</th>
-                  <th className="px-6 py-3 font-medium">Aktivitas Terbanyak</th>
-                  <th className="px-6 py-3 font-medium">Catatan</th>
-                  <th className="px-6 py-3 text-right font-medium">Aksi</th>
+                  <th className="px-6 py-4 font-medium">Tanggal</th>
+                  <th className="px-6 py-4 font-medium">Total Screen Time</th>
+                  <th className="px-6 py-4 font-medium">Kategori Terbanyak</th>
+                  <th className="px-6 py-4 font-medium">Catatan</th>
+                  <th className="px-6 py-4 text-right font-medium">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {pagedSummaries.map((summary) => (
                   <tr
                     key={summary.date}
-                    className="border-b last:border-b-0 transition-colors hover:bg-muted/50"
+                    className="border-b last:border-b-0 transition-colors hover:bg-slate-50/50"
                   >
-                    <td className="px-6 py-4 font-medium">
-                      {formatShortDate(summary.date)}
-                    </td>
                     <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-slate-700 font-medium">
+                        {formatShortDate(summary.date)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-700 font-medium">
                       {formatTotalDuration(summary.totalMinutes)}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          categoryBadgeStyles[summary.dominantCategory] ??
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${categoryBadgeStyles[summary.dominantCategory] ??
                           categoryBadgeStyles.lainnya
-                        }`}
+                          }`}
                       >
                         {categoryLabels[summary.dominantCategory] ?? "Lainnya"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">
+                    <td className="px-6 py-4 text-sm text-slate-500 max-w-62.5 truncate">
                       {(() => {
                         const dayActivities = filteredActivities.filter(
                           (a) => a.date === summary.date && a.notes
@@ -600,19 +765,21 @@ export default function RiwayatPage() {
                         return dayActivities.map((a) => a.notes).join("; ")
                       })()}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => {
-                          setSelectedDay(summary)
-                          setSelectedDayActivities(
-                            activities.filter((a) => a.date === summary.date)
-                          )
-                          setEditingActivity(null)
-                        }}
-                        className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <IconEye className="size-4" />
-                      </button>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedDay(summary)
+                            setSelectedDayActivities(
+                              activities.filter((a) => a.date === summary.date)
+                            )
+                            setEditingActivity(null)
+                          }}
+                          className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-800"
+                        >
+                          <IconEye className="size-4" stroke={2.5} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -620,13 +787,13 @@ export default function RiwayatPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between border-t px-6 py-3">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between border-t px-6 py-4">
+            <p className="text-sm text-slate-500">
               Menampilkan {startItem}–{endItem} dari {summaries.length} data
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <span className="text-sm text-slate-500">Rows per page</span>
                 <Select
                   value={String(rowsPerPage)}
                   onValueChange={(v) => {
@@ -634,7 +801,7 @@ export default function RiwayatPage() {
                     setPage(1)
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[70px]">
+                  <SelectTrigger className="h-8 w-17.5 rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -650,14 +817,42 @@ export default function RiwayatPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage <= 1}
-                  className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
                 >
                   <IconChevronLeft className="size-4" />
                 </button>
+
+                {/* Logic Paginasi Angka */}
+                {[...Array(totalPages)].map((_, i) => {
+                  const pageNum = i + 1;
+                  // Tampilkan maksimal ~5 halaman agar rapi (ellipses)
+                  if (totalPages > 5) {
+                    if (pageNum !== 1 && pageNum !== totalPages && Math.abs(pageNum - safePage) > 1) {
+                      if (pageNum === safePage - 2 || pageNum === safePage + 2) {
+                        return <span key={pageNum} className="px-1 text-slate-400">...</span>;
+                      }
+                      return null;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`inline-flex size-8 items-center justify-center rounded-md text-sm font-medium transition-colors ${safePage === pageNum
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage >= totalPages}
-                  className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
                 >
                   <IconChevronRight className="size-4" />
                 </button>
@@ -667,13 +862,14 @@ export default function RiwayatPage() {
         </Card>
       )}
 
+      {/* DETAIL MODAL (Dibiarkan persis seperti aslinya) */}
       {selectedDay && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setSelectedDay(null)}
         >
           <div
-            className="w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl animate-fade-in-up"
+            className="w-full max-w-125 max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -700,11 +896,10 @@ export default function RiwayatPage() {
                         key={id}
                         type="button"
                         onClick={() => setAddCategory(id)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          addCategory === id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${addCategory === id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
                       >
                         {label}
                       </button>
@@ -784,11 +979,10 @@ export default function RiwayatPage() {
                                 key={id}
                                 type="button"
                                 onClick={() => setEditCategory(id)}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                                  editCategory === id
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                }`}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${editCategory === id
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                  }`}
                               >
                                 {label}
                               </button>
@@ -872,13 +1066,32 @@ export default function RiwayatPage() {
                           className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                           <IconPencil className="size-3.5" />
+
                         </button>
-                        <button
-                          onClick={() => handleDeleteActivity(activity.id)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <IconTrash className="size-3.5" />
-                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                              <IconTrash className="size-3.5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Yakin ingin menghapus?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Menghapus aktivitas ini dapat mereset atau memutus Streak kamu.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteActivity(activity.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Hapus
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   )

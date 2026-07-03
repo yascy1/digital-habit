@@ -3,12 +3,13 @@
 import { useState, useMemo } from "react"
 import {
   IconClock,
-  IconHeart,
+  IconFlame,
   IconMoon,
   IconDeviceMobile,
   IconTrendingUp,
   IconCheck,
   IconCalendar,
+  IconHeart,
 } from "@tabler/icons-react"
 import {
   Card,
@@ -35,7 +36,17 @@ import {
   XAxis,
 } from "recharts"
 import { getActivities, getProfile } from "@/lib/activities"
+import { getStreak } from "@/lib/streak"
 import type { Activity } from "@/lib/types"
+import { IconInfoCircle } from "@tabler/icons-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+
+} from "@/components/ui/tooltip"
+
 
 const lineChartConfig = {
   screentime: {
@@ -186,7 +197,7 @@ function computeDonutData(activities: Activity[]) {
     }))
 }
 
-function computeStats(allActivities: Activity[], period: string, datePicker: string) {
+function computeStats(allActivities: Activity[], period: string, datePicker: string, streak: number) {
   const periodDays = period === "Harian" ? 1 : period === "Mingguan" ? 7 : 30
   const periodLabel = period === "Harian" ? "kemarin" : period === "Mingguan" ? "minggu lalu" : "bulan lalu"
 
@@ -220,26 +231,25 @@ function computeStats(allActivities: Activity[], period: string, datePicker: str
   const topCatPercent = currentTotal > 0 && topCat ? Math.round((topCat[1] / currentTotal) * 100) : 0
 
   const currentBelajar = currentCatMinutes["Belajar/Kerja"] ?? 0
-  const previousBelajar = previousCatMinutes["Belajar/Kerja"] ?? 0
   const currentWellness = currentTotal > 0 ? Math.round((currentBelajar / currentTotal) * 100) : 0
-  const previousWellness = previousTotal > 0 ? Math.round((previousBelajar / previousTotal) * 100) : 0
 
   const currentAvg = periodDays > 0 ? Math.round(currentTotal / periodDays) : 0
   const previousAvg = periodDays > 0 ? Math.round(previousTotal / periodDays) : 0
 
-  const pctScreenTime = percentChange(currentTotal, previousTotal)
-  const pctAvg = percentChange(currentAvg, previousAvg)
+  // 1. LOGIKA TREN DURASI (BUKAN PERSENTASE)
+  const diffTotal = currentTotal - previousTotal
+  const totalTrendStr = previousTotal === 0
+    ? "Belum ada data pembanding"
+    : `${diffTotal >= 0 ? "▲ Naik" : "▼ Turun"} ${formatMinutes(Math.abs(diffTotal))} dari ${periodLabel}`
 
-  let wellnessTrend: string
-  if (previousTotal === 0) {
-    wellnessTrend = "Belum ada data pembanding"
-  } else if (currentWellness > previousWellness) {
-    wellnessTrend = `Membaik dari ${periodLabel}`
-  } else if (currentWellness < previousWellness) {
-    wellnessTrend = `Menurun dari ${periodLabel}`
-  } else {
-    wellnessTrend = `Stabil dari ${periodLabel}`
-  }
+  const diffAvg = currentAvg - previousAvg
+
+  // Teks khusus agar user paham kenapa "Rata-rata" kembar dengan "Total" saat mode Harian
+  const avgTrendStr = period === "Harian"
+    ? "Sama dengan total harian"
+    : previousTotal === 0
+      ? "Belum ada data pembanding"
+      : `${diffAvg >= 0 ? "▲ Naik" : "▼ Turun"} ${formatMinutes(Math.abs(diffAvg))} dari ${periodLabel}`
 
   return {
     stats: [
@@ -247,27 +257,31 @@ function computeStats(allActivities: Activity[], period: string, datePicker: str
         icon: IconClock,
         label: "Total Screen Time",
         value: currentTotal > 0 ? formatMinutes(currentTotal) : "0j 0m",
-        trend: previousTotal === 0
-          ? "Belum ada data pembanding"
-          : `${pctScreenTime !== null && pctScreenTime >= 0 ? "▲" : "▼"} ${Math.abs(pctScreenTime ?? 0)}% dari ${periodLabel}`,
+        trend: totalTrendStr,
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
       },
       {
-        icon: IconHeart,
-        label: "Digital Wellness Score",
-        value: currentTotal === 0 ? "-" : `${currentWellness}/100`,
-        trend: wellnessTrend,
-        iconBg: "bg-green-100",
-        iconColor: "text-green-600",
+        icon: IconFlame,
+        label: "Streak Pencatatan",
+        value: `${streak} Hari`,
+        trend: streak === 0
+          ? "Mulai catat hari ini!"
+          : streak >= 7
+            ? "🔥 Luar biasa, pertahankan!"
+            : "Jaga konsistensimu!",
+        iconBg: streak > 0 ? "bg-orange-100" : "bg-muted",
+        iconColor: streak > 0 ? "text-orange-600" : "text-muted-foreground",
       },
       {
-        icon: IconMoon,
-        label: "Rata-rata / Hari",
-        value: currentTotal > 0 ? formatMinutes(currentAvg) : "0j 0m",
-        trend: previousTotal === 0
-          ? "Belum ada data pembanding"
-          : `${pctAvg !== null && pctAvg >= 0 ? "▲" : "▼"} ${Math.abs(pctAvg ?? 0)}% dari ${periodLabel}`,
+        icon: period === "Harian" ? IconCheck : IconMoon,
+        label: period === "Harian" ? "Total Entri Aktivitas" : "Rata-rata / Hari",
+        value: period === "Harian"
+          ? `${current.length} kali`
+          : (currentTotal > 0 ? formatMinutes(currentAvg) : "0j 0m"),
+        trend: period === "Harian"
+          ? "Sesi yang kamu catat hari ini"
+          : avgTrendStr,
         iconBg: "bg-amber-100",
         iconColor: "text-amber-600",
       },
@@ -275,7 +289,7 @@ function computeStats(allActivities: Activity[], period: string, datePicker: str
         icon: IconDeviceMobile,
         label: "Aktivitas Terbanyak",
         value: topCatLabel,
-        trend: `${topCatPercent}% waktu layar`,
+        trend: currentTotal > 0 ? `Mendominasi ${topCatPercent}% waktumu` : "Belum ada aktivitas",
         iconBg: "bg-purple-100",
         iconColor: "text-purple-600",
       },
@@ -374,9 +388,10 @@ export default function DashboardPage() {
     return getScreenTimeTrend(activities, days)
   }, [activities, activeFilter])
 
+  const streak = useMemo(() => getStreak(), [activities])
   const { stats, donutData, donutLabel } = useMemo(
-    () => computeStats(activities, activeFilter, datePicker),
-    [activities, activeFilter, datePicker]
+    () => computeStats(activities, activeFilter, datePicker, streak),
+    [activities, activeFilter, datePicker, streak]
   )
 
   const filteredForInsights = useMemo(() => {
@@ -424,11 +439,10 @@ export default function DashboardPage() {
           <button
             key={filter}
             onClick={() => setActiveFilter(filter)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeFilter === filter
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${activeFilter === filter
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
           >
             {filter}
           </button>
@@ -446,7 +460,23 @@ export default function DashboardPage() {
                   <stat.icon className={`size-5 ${stat.iconColor}`} />
                 </div>
                 <div className="flex flex-col">
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  {stat.label === "Streak Pencatatan" ? (
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <IconInfoCircle className="size-3.5 text-muted-foreground/60 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-50 text-center text-xs">
+                            Streak dihitung dari kedisiplinan harianmu. Menghapus riwayat aktivitas akan memutus rantai streak.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  )}
                   <p className="text-xl font-bold tracking-tight">
                     {stat.value}
                   </p>
