@@ -76,7 +76,7 @@ export function getProfile(): UserProfile {
     const raw = localStorage.getItem(getProfileKey(email))
     if (raw) return { ...defaultProfile, ...JSON.parse(raw) }
     const session = JSON.parse(localStorage.getItem("digital-habit-user") ?? "{}")
-    return { ...defaultProfile, name: session.name ?? "", fullName: session.name ?? "", email: session.email }
+    return { ...defaultProfile, name: session.name ?? "", fullName: session.name ?? "", email: session.email ?? "" }
   } catch {
     return defaultProfile
   }

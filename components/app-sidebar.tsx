@@ -1,14 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { usePathname } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import {
   IconLayoutDashboard,
   IconPlus,
   IconHistory,
   IconUser,
-  IconLogout,
+  IconLogout
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
@@ -45,38 +44,38 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
-      <div className="flex flex-col gap-1 p-6">
+    // Tambahkan relative dan overflow-hidden di sini
+    <aside className="relative flex h-full w-64 flex-col border-r border-slate-200 bg-white overflow-hidden">
+      
+      {/* ================= GAMBAR DAUN SIDEBAR ================= */}
+      {/* Letakkan absolute di bawah, z-0 agar jadi background */}
+      <div className="absolute bottom-0 left-0 w-full pointer-events-none z-0 opacity-80">
+        <img 
+          src="/digital-habit/bg-daun.png" // Ganti dengan path file gambar daun vektor kamu
+          alt="Dekorasi Daun" 
+          className="w-full h-auto object-cover"
+        />
+      </div>
+
+      {/* HEADER LOGO */}
+      {/* Tambahkan relative z-10 agar selalu berada di atas gambar daun */}
+      <div className="relative z-10 p-6 mb-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-5"
-            >
-              <rect width="18" height="18" x="3" y="3" rx="2" />
-              <path d="M7 7h10" />
-              <path d="M7 12h10" />
-              <path d="M7 17h10" />
-            </svg>
-          </div>
+          <img src="/digital-habit/logo.png" alt="Digital Habit Logo" className="size-10 rounded-xl shadow-md object-cover" />
           <div>
-            <h1 className="text-base font-semibold leading-none">
+            <h1 className="text-sm font-extrabold text-slate-900 tracking-tight">
               Digital Habit
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">
               Kelola kebiasaan digitalmu
             </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3">
+      {/* MENU NAVIGATION */}
+      {/* Tambahkan relative z-10 di sini juga */}
+      <nav className="relative z-10 flex flex-1 flex-col gap-1.5 px-4">
         {menuItems.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -84,22 +83,29 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  ? "bg-blue-50 text-blue-600 shadow-none"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               )}
             >
-              <item.icon className="size-4" />
+              <item.icon className={cn("size-5", isActive ? "text-blue-600" : "text-slate-400")} stroke={isActive ? 2.5 : 2} />
               {item.label}
             </Link>
           )
         })}
       </nav>
 
-      <div className="px-3 pb-6">
-        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
-          <IconLogout className="size-4" />
+      {/* LOGOUT BUTTON */}
+      {/* Tambahkan relative z-10 di sini agar tetap bisa diklik */}
+      <div className="relative z-10 px-4 pb-6 mt-auto">
+        <button 
+          onClick={handleLogout} 
+          // Ubah background hover jadi putih semi transparan/krem agar tidak bentrok dengan warna daun jika perlu,
+          // tapi memakai red-50 seperti kodemu juga sudah oke selama teksnya terbaca.
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 bg-white/50 backdrop-blur-sm"
+        >
+          <IconLogout className="size-5" stroke={2} />
           Logout
         </button>
       </div>

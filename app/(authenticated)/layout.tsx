@@ -1,7 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { AuthCheck } from "@/components/auth-check"
 
-export default function DashboardLayout({
+export default function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode

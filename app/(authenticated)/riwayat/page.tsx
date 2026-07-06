@@ -19,7 +19,10 @@ import {
   IconDots,
   IconSchool,
   IconDownload,
-  IconX, // Tambahan IconX untuk badge filter
+  IconX,
+  IconClock,
+  IconSelector,
+  IconAlertTriangle,
 } from "@tabler/icons-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -48,7 +51,6 @@ import {
   updateActivity,
   deleteActivity as deleteActivityFn,
 } from "@/lib/activities"
-import { updateStreak } from "@/lib/streak"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +63,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-// ... (Seluruh variabel konstan di atas tetap sama: categoryBadgeStyles, dll.)
+// BAGIAN 1: KONFIGURASI TAMPILAN (STYLING & LABELS)
 const categoryBadgeStyles: Record<string, string> = {
   "media-sosial": "bg-orange-100 text-orange-700",
   "belajar-kerja": "bg-green-100 text-green-700",
@@ -77,6 +79,9 @@ const categoryLabels: Record<string, string> = {
   gaming: "Gaming",
   lainnya: "Lainnya",
 }
+
+
+// BAGIAN 2: FUNGSI PEMBANTU (HELPER FUNCTIONS)
 
 function formatTotalDuration(totalMinutes: number): string {
   const hours = Math.floor(totalMinutes / 60)
@@ -94,6 +99,12 @@ function formatShortDate(dateStr: string): string {
     month: "long",
     year: "numeric",
   })
+}
+
+// Fungsi pembantu untuk mengambil nama hari
+function getDayName(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00")
+  return date.toLocaleDateString("id-ID", { weekday: 'long' })
 }
 
 function formatDateId(date: Date): string {
@@ -176,6 +187,8 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   lainnya: IconDots,
 }
 
+
+// BAGIAN 3: KOMPONEN UTAMA
 export default function RiwayatPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [showFilterPopover, setShowFilterPopover] = useState(false)
@@ -185,6 +198,8 @@ export default function RiwayatPage() {
   const [draftDateTo, setDraftDateTo] = useState<string>("")
   const [page, setPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(5)
+  const [sortField, setSortField] = useState<"date" | "totalMinutes" | "dominantCategory">("date")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [selectedDay, setSelectedDay] = useState<DaySummary | null>(null)
   const [selectedDayActivities, setSelectedDayActivities] = useState<Activity[]>([])
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
@@ -197,6 +212,24 @@ export default function RiwayatPage() {
   const [addHours, setAddHours] = useState("")
   const [addMinutes, setAddMinutes] = useState("")
   const [addNotes, setAddNotes] = useState("")
+
+  function refreshSelectedDay(allActivities: Activity[]) {
+    setSelectedDay((prev) => {
+      if (!prev) return null
+      const dayActs = allActivities.filter((a) => a.date === prev.date)
+      if (dayActs.length === 0) return null
+      const categoryMinutes: Record<string, number> = {}
+      let totalMinutes = 0
+      for (const a of dayActs) {
+        const mins = a.durationHours * 60 + a.durationMinutes
+        totalMinutes += mins
+        categoryMinutes[a.category] = (categoryMinutes[a.category] ?? 0) + mins
+      }
+      const dominantCategory = Object.entries(categoryMinutes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ""
+      return { ...prev, totalMinutes, dominantCategory, categoryMinutes }
+    })
+  }
+  const [today, setToday] = useState("")
   const [exportOpen, setExportOpen] = useState(false)
   const [exportMode, setExportMode] = useState<"filtered" | "custom">("filtered")
   const [exportDateFrom, setExportDateFrom] = useState("")
@@ -214,6 +247,14 @@ export default function RiwayatPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showFilterPopover])
 
+  function handleSort(field: "date" | "totalMinutes" | "dominantCategory") {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortField(field)
+      setSortDir("desc")
+    }
+  }
 
   function startEdit(activity: Activity) {
     setEditingActivity(activity)
@@ -237,18 +278,27 @@ export default function RiwayatPage() {
     setSelectedDayActivities((prev) =>
       prev.map((a) => (a.id === updated.id ? updated : a))
     )
+    refreshSelectedDay(getActivities())
     setEditingActivity(null)
   }
 
-  function handleDeleteActivity(id: string) {
+  // Fungsi ini dipanggil dari Tabel Utama (Hapus semua aktivitas pada 1 hari)
+  function handleDeleteDay(date: string) {
+    const dayActivities = activities.filter((a) => a.date === date)
+    dayActivities.forEach((a) => deleteActivityFn(a.id))
+
+    const remaining = getActivities()
+    setActivities(remaining)
+  }
+
+  // Fungsi ini dipanggil dari Modal Detail (Hapus satu aktivitas spesifik)
+  function handleDeleteSingleActivity(id: string) {
     deleteActivityFn(id)
 
     const remaining = getActivities()
     setActivities(remaining)
     setSelectedDayActivities((prev) => prev.filter((a) => a.id !== id))
-
-    // Update streak setelah hapus aktivitas
-    updateStreak()
+    refreshSelectedDay(remaining)
   }
 
   function handleAddActivity() {
@@ -263,9 +313,9 @@ export default function RiwayatPage() {
       createdAt: Date.now(),
     }
     saveActivity(newActivity)
-    updateStreak()
     setActivities(getActivities())
     setSelectedDayActivities((prev) => [...prev, newActivity])
+    refreshSelectedDay(getActivities())
     setAddCategory("")
     setAddHours("")
     setAddMinutes("")
@@ -429,6 +479,7 @@ export default function RiwayatPage() {
   }
 
   useEffect(() => {
+    setToday(new Date().toISOString().split("T")[0])
     setActivities(getActivities())
   }, [])
 
@@ -445,6 +496,16 @@ export default function RiwayatPage() {
     [filteredActivities]
   )
 
+  const sortedSummaries = useMemo(() => {
+    return [...summaries].sort((a, b) => {
+      let cmp = 0
+      if (sortField === "date") cmp = a.date.localeCompare(b.date)
+      else if (sortField === "totalMinutes") cmp = a.totalMinutes - b.totalMinutes
+      else cmp = a.dominantCategory.localeCompare(b.dominantCategory)
+      return sortDir === "asc" ? cmp : -cmp
+    })
+  }, [summaries, sortField, sortDir])
+
   const exportPreview = useMemo(() => {
     if (exportMode === "filtered") {
       if (activities.length === 0) return null
@@ -456,36 +517,40 @@ export default function RiwayatPage() {
     return { count: filtered.length, from: formatMonthYear(exportDateFrom), to: formatMonthYear(exportDateTo) }
   }, [exportMode, exportDateFrom, exportDateTo, activities])
 
-  const totalPages = Math.max(1, Math.ceil(summaries.length / rowsPerPage))
+  const totalPages = Math.max(1, Math.ceil(sortedSummaries.length / rowsPerPage))
   const safePage = Math.min(page, totalPages)
-  const pagedSummaries = summaries.slice(
+  const pagedSummaries = sortedSummaries.slice(
     (safePage - 1) * rowsPerPage,
     safePage * rowsPerPage
   )
 
-  const startItem = summaries.length === 0 ? 0 : (safePage - 1) * rowsPerPage + 1
-  const endItem = Math.min(safePage * rowsPerPage, summaries.length)
+  const startItem = sortedSummaries.length === 0 ? 0 : (safePage - 1) * rowsPerPage + 1
+  const endItem = Math.min(safePage * rowsPerPage, sortedSummaries.length)
 
+
+  // BAGIAN 4: RENDER ANTARMUKA (UI)
   return (
-    <div suppressHydrationWarning className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full bg-[#F8FAFC] min-h-screen">
+
       {/* HEADER SECTION (Title & Actions) */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/60 pb-5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-slate-900">
             Riwayat Aktivitas
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-slate-500">
             Lihat catatan penggunaan digitalmu dari waktu ke waktu.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* POPOVER FILTER */}
           <div className="relative" ref={filterRef}>
             <Button
               variant="outline"
-              className={`gap-2 rounded-xl px-5 text-sm font-medium transition-colors ${showFilterPopover || dateFrom || dateTo
+              className={`gap-2 rounded-xl px-5 text-sm font-bold shadow-sm transition-colors ${showFilterPopover || dateFrom || dateTo
                 ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-border/60 text-slate-700 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               onClick={() => {
                 if (!showFilterPopover) {
@@ -500,59 +565,82 @@ export default function RiwayatPage() {
             </Button>
 
             {showFilterPopover && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-80 animate-fade-in-up overflow-hidden rounded-2xl border border-border/60 bg-white shadow-lg shadow-black/4">
-                {/* Konten Filter Popover dibiarkan seperti asli */}
-                <div className="px-5 pt-5 pb-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                      <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Start Date</span>
-                      <input type="date" value={draftDateFrom} onChange={(e) => setDraftDateFrom(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
+              <div className="absolute right-0 top-full z-50 mt-2  min-w-[320px] sm:min-w-120 animate-fade-in-up overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-[0_15px_40px_-10px_rgba(0,0,0,0.08)]">
+                <div className="p-6 flex flex-col gap-5">
+                  <div className="flex items-center gap-2">
+                    <IconCalendar className="size-5 text-blue-600" />
+                    <span className="font-extrabold text-slate-800">Filter Rentang Tanggal</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-end gap-3 w-full">
+                    <div className="flex flex-col gap-1.5 flex-1 w-full">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Dari tanggal</label>
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 transition-colors focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400">
+                        <IconCalendar className="size-4 shrink-0 text-slate-400" />
+                        <input
+                          type="date"
+                          value={draftDateFrom}
+                          onChange={(e) => setDraftDateFrom(e.target.value)}
+                          className="w-full bg-transparent text-sm font-medium outline-none text-slate-700 scheme-light"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
-                      <IconCalendar className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">End Date</span>
-                      <input type="date" value={draftDateTo} onChange={(e) => setDraftDateTo(e.target.value)} className="ml-auto min-w-0 bg-transparent text-sm outline-none [color-scheme:light dark:dark]" />
+
+                    <span className="hidden sm:block pb-3 text-slate-300 font-bold">—</span>
+
+                    <div className="flex flex-col gap-1.5 flex-1 w-full">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Sampai tanggal</label>
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 transition-colors focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400">
+                        <IconCalendar className="size-4 shrink-0 text-slate-400" />
+                        <input
+                          type="date"
+                          value={draftDateTo}
+                          onChange={(e) => setDraftDateTo(e.target.value)}
+                          className="w-full bg-transparent text-sm font-medium outline-none text-slate-700 scheme-light"
+                        />
+                      </div>
                     </div>
+
+                    <Button
+                      className="rounded-xl bg-blue-600 px-6 py-5 h-auto text-sm font-bold text-white shadow-md shadow-blue-600/10 hover:bg-blue-700 active:scale-[0.98] w-full sm:w-auto"
+                      onClick={() => {
+                        setDateFrom(draftDateFrom)
+                        setDateTo(draftDateTo)
+                        setPage(1)
+                        setShowFilterPopover(false)
+                      }}
+                    >
+                      Terapkan
+                    </Button>
                   </div>
                 </div>
-                <div className="border-t border-border/40 px-5 py-3 flex items-center justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      setDraftDateFrom("")
-                      setDraftDateTo("")
-                      setDateFrom("")
-                      setDateTo("")
-                      setPage(1)
-                      setShowFilterPopover(false)
-                    }}
-                  >
-                    Reset
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="rounded-xl bg-blue-600 px-5 text-xs font-medium text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.98]"
-                    onClick={() => {
-                      setDateFrom(draftDateFrom)
-                      setDateTo(draftDateTo)
-                      setPage(1)
-                      setShowFilterPopover(false)
-                    }}
-                  >
-                    Terapkan
-                  </Button>
-                </div>
+
+                {/* Reset area optional inside popover */}
+                {(draftDateFrom || draftDateTo) && (
+                  <div className="bg-slate-50 border-t border-slate-100 px-6 py-3 flex justify-between items-center">
+                    <span className="text-xs text-slate-500">Ingin melihat semua data?</span>
+                    <button
+                      onClick={() => {
+                        setDraftDateFrom("")
+                        setDraftDateTo("")
+                        setDateFrom("")
+                        setDateTo("")
+                        setPage(1)
+                        setShowFilterPopover(false)
+                      }}
+                      className="text-xs font-bold text-red-500 hover:underline"
+                    >
+                      Reset Filter
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* DESAIN BARU EKSPOR PDF MODAL */}
           <Popover open={exportOpen} onOpenChange={setExportOpen}>
             <PopoverTrigger asChild>
-              <Button className="gap-2 rounded-xl bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-all">
+              <Button variant="outline" className="gap-2 rounded-xl bg-white border-blue-200 px-5 text-sm font-bold text-blue-600 hover:bg-blue-50 shadow-sm transition-all">
                 <IconDownload className="size-4" />
                 Ekspor PDF
               </Button>
@@ -575,7 +663,6 @@ export default function RiwayatPage() {
                 <div className="flex flex-col gap-3">
                   <p className="text-sm font-medium text-slate-700">Pilih data yang akan diekspor</p>
 
-                  {/* Opsi 1: Semua Data */}
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
                     <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-blue-600">
                       {exportMode === "filtered" && <div className="size-2 rounded-full bg-blue-600" />}
@@ -592,7 +679,6 @@ export default function RiwayatPage() {
                     </div>
                   </label>
 
-                  {/* Opsi 2: Kustom Data */}
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
                     <div className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${exportMode === "custom" ? "border-blue-600" : "border-slate-300"}`}>
                       {exportMode === "custom" && <div className="size-2 rounded-full bg-blue-600" />}
@@ -609,7 +695,6 @@ export default function RiwayatPage() {
                     </div>
                   </label>
 
-                  {/* Input Tanggal Kustom (Muncul jika Opsi 2 Dipilih) */}
                   {exportMode === "custom" && (
                     <div className="flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-1">
                       <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 px-3.5 py-2.5 transition-colors focus-within:border-primary/40 focus-within:bg-background">
@@ -685,33 +770,21 @@ export default function RiwayatPage() {
               <IconX className="size-3.5" />
             </button>
           </div>
-          <button
-            onClick={() => {
-              setDateFrom("")
-              setDateTo("")
-              setDraftDateFrom("")
-              setDraftDateTo("")
-              setPage(1)
-            }}
-            className="text-sm font-medium text-blue-600 hover:underline transition-colors"
-          >
-            Reset Filter
-          </button>
         </div>
       )}
 
       {/* TABLE SECTION */}
       {summaries.length === 0 ? (
-        <Card className="rounded-2xl border-none shadow-sm ring-1 ring-black/5">
-          <CardContent className="flex flex-col items-center justify-center py-16">
+        <Card className="rounded-2xl border-none shadow-[0_4px_25px_-5px_rgba(0,0,0,0.01)] bg-white mt-2">
+          <CardContent className="flex flex-col items-center justify-center py-20">
             <div className="flex size-16 items-center justify-center rounded-2xl bg-blue-50">
               <IconHistory className="size-8 text-blue-400" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold text-slate-800">Belum ada aktivitas</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="mt-4 text-lg font-bold text-slate-800">Belum ada aktivitas</h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
               Mulai catat aktivitas digitalmu untuk melihat riwayat di sini.
             </p>
-            <Button asChild className="mt-6 gap-2 bg-blue-600 rounded-xl hover:bg-blue-700">
+            <Button asChild className="mt-6 gap-2 bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md">
               <Link href="/input-aktivitas">
                 <IconPlus className="size-4" />
                 Input Aktivitas
@@ -720,43 +793,88 @@ export default function RiwayatPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="rounded-2xl border-none shadow-sm ring-1 ring-black/5">
+        <Card className="rounded-3xl border border-slate-200/60 shadow-[0_10px_40px_-10px_rgba(15,23,42,0.04)] bg-white overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                {/* Header tabel dibiarkan sama */}
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="px-6 py-4 font-medium">Tanggal</th>
-                  <th className="px-6 py-4 font-medium">Total Screen Time</th>
-                  <th className="px-6 py-4 font-medium">Kategori Terbanyak</th>
-                  <th className="px-6 py-4 font-medium">Catatan</th>
-                  <th className="px-6 py-4 text-right font-medium">Aksi</th>
+              <thead className="bg-white">
+                <tr className="border-b border-slate-200/80 text-left text-slate-500">
+                  <th
+                    className="px-8 py-5 font-bold cursor-pointer select-none hover:text-slate-700 transition-colors"
+                    onClick={() => handleSort("date")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Tanggal
+                      <IconSelector className={`size-3.5 ${sortField === "date" ? "text-blue-500" : "opacity-50"}`} />
+                    </div>
+                  </th>
+                  <th
+                    className="px-6 py-5 font-bold cursor-pointer select-none hover:text-slate-700 transition-colors"
+                    onClick={() => handleSort("totalMinutes")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Total Screen Time
+                      <IconSelector className={`size-3.5 ${sortField === "totalMinutes" ? "text-blue-500" : "opacity-50"}`} />
+                    </div>
+                  </th>
+                  <th
+                    className="px-6 py-5 font-bold cursor-pointer select-none hover:text-slate-700 transition-colors"
+                    onClick={() => handleSort("dominantCategory")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Kategori Terbanyak
+                      <IconSelector className={`size-3.5 ${sortField === "dominantCategory" ? "text-blue-500" : "opacity-50"}`} />
+                    </div>
+                  </th>
+                  <th className="px-6 py-5 font-bold">Catatan</th>
+                  <th className="px-8 py-5 text-center font-bold">Aksi</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white">
                 {pagedSummaries.map((summary) => (
                   <tr
                     key={summary.date}
-                    className="border-b last:border-b-0 transition-colors hover:bg-slate-50/50"
+                    className="border-b border-slate-100 last:border-b-0 transition-colors hover:bg-slate-50/50 group"
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-700 font-medium">
-                        {formatShortDate(summary.date)}
+                    {/* Tanggal dengan Icon Kalender dan Nama Hari */}
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500 shrink-0">
+                          <IconCalendar className="size-5" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[13px] font-extrabold text-slate-800">
+                            {formatShortDate(summary.date)}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-500">
+                            {getDayName(summary.date)}
+                          </span>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-700 font-medium">
-                      {formatTotalDuration(summary.totalMinutes)}
+
+                    {/* Total Screen Time dengan Icon Jam */}
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-slate-800 font-extrabold text-[13px]">
+                        <div className="flex size-6 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                          <IconClock className="size-3.5" />
+                        </div>
+                        {formatTotalDuration(summary.totalMinutes)}
+                      </div>
                     </td>
-                    <td className="px-6 py-4">
+
+                    {/* Kategori Badge */}
+                    <td className="px-6 py-5">
                       <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${categoryBadgeStyles[summary.dominantCategory] ??
+                        className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] font-bold tracking-wide ${categoryBadgeStyles[summary.dominantCategory] ??
                           categoryBadgeStyles.lainnya
                           }`}
                       >
                         {categoryLabels[summary.dominantCategory] ?? "Lainnya"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 max-w-62.5 truncate">
+
+                    {/* Catatan (Truncated) */}
+                    <td className="px-6 py-5 text-[12px] font-medium text-slate-500 max-w-50 truncate">
                       {(() => {
                         const dayActivities = filteredActivities.filter(
                           (a) => a.date === summary.date && a.notes
@@ -765,8 +883,10 @@ export default function RiwayatPage() {
                         return dayActivities.map((a) => a.notes).join("; ")
                       })()}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
+
+                    {/* Kolom Aksi (Eye and Trash saja) */}
+                    <td className="px-8 py-5">
+                      <div className="flex items-center justify-center gap-2 opacity-100 sm:opacity-50 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => {
                             setSelectedDay(summary)
@@ -775,10 +895,38 @@ export default function RiwayatPage() {
                             )
                             setEditingActivity(null)
                           }}
-                          className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-800"
+                          className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-500 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50"
+                          title="Lihat Detail"
                         >
                           <IconEye className="size-4" stroke={2.5} />
                         </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                              title="Hapus Semua Aktivitas Hari Ini"
+                            >
+                              <IconTrash className="size-4" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="rounded-[20px]">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-bold">Hapus Seluruh Aktivitas Hari Ini?</AlertDialogTitle>
+                              <AlertDialogDescription className="font-medium text-slate-500">
+                                Menghapus aktivitas pada hari ini akan <b>menghapus data aktivitas hari ini</b>. Tindakan ini tidak dapat dibatalkan.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-xl border-slate-200">Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteDay(summary.date)}
+                                className="rounded-xl bg-red-500 text-white hover:bg-red-600"
+                              >
+                                Hapus Semua
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </td>
                   </tr>
@@ -787,13 +935,14 @@ export default function RiwayatPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between border-t px-6 py-4">
-            <p className="text-sm text-slate-500">
-              Menampilkan {startItem}–{endItem} dari {summaries.length} data
+          {/* Footer Tabel */}
+          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 px-8 py-5 gap-4">
+            <p className="text-[12px] font-medium text-slate-500">
+              Menampilkan {startItem}–{endItem} dari {sortedSummaries.length} data
             </p>
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500">Rows per page</span>
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] font-medium text-slate-500">Rows per page</span>
                 <Select
                   value={String(rowsPerPage)}
                   onValueChange={(v) => {
@@ -801,12 +950,12 @@ export default function RiwayatPage() {
                     setPage(1)
                   }}
                 >
-                  <SelectTrigger className="h-8 w-17.5 rounded-lg">
+                  <SelectTrigger className="h-9 w-17.5 rounded-xl border-slate-200 font-bold text-slate-700">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl">
                     {ROWS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={String(opt)}>
+                      <SelectItem key={opt} value={String(opt)} className="font-medium">
                         {opt}
                       </SelectItem>
                     ))}
@@ -817,19 +966,17 @@ export default function RiwayatPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage <= 1}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
                 >
-                  <IconChevronLeft className="size-4" />
+                  <IconChevronLeft className="size-4" stroke={2.5} />
                 </button>
 
-                {/* Logic Paginasi Angka */}
                 {[...Array(totalPages)].map((_, i) => {
                   const pageNum = i + 1;
-                  // Tampilkan maksimal ~5 halaman agar rapi (ellipses)
                   if (totalPages > 5) {
                     if (pageNum !== 1 && pageNum !== totalPages && Math.abs(pageNum - safePage) > 1) {
                       if (pageNum === safePage - 2 || pageNum === safePage + 2) {
-                        return <span key={pageNum} className="px-1 text-slate-400">...</span>;
+                        return <span key={pageNum} className="px-1 text-slate-400 font-bold tracking-widest text-xs">...</span>;
                       }
                       return null;
                     }
@@ -839,9 +986,9 @@ export default function RiwayatPage() {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`inline-flex size-8 items-center justify-center rounded-md text-sm font-medium transition-colors ${safePage === pageNum
+                      className={`inline-flex size-8 items-center justify-center rounded-lg text-[13px] font-bold transition-all ${safePage === pageNum
                         ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                         }`}
                     >
                       {pageNum}
@@ -852,9 +999,9 @@ export default function RiwayatPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage >= totalPages}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
                 >
-                  <IconChevronRight className="size-4" />
+                  <IconChevronRight className="size-4" stroke={2.5} />
                 </button>
               </div>
             </div>
@@ -862,24 +1009,26 @@ export default function RiwayatPage() {
         </Card>
       )}
 
-      {/* DETAIL MODAL (Dibiarkan persis seperti aslinya) */}
+      {/* DETAIL MODAL */}
       {selectedDay && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
           onClick={() => setSelectedDay(null)}
         >
           <div
-            className="w-full max-w-125 max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl animate-fade-in-up"
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[24px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
-                Detail {formatShortDate(selectedDay.date)}
-              </h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-extrabold text-slate-800">
+                  Detail Aktivitas
+                </h2>
+                <p className="text-xs font-medium text-slate-500">{formatShortDate(selectedDay.date)}</p>
+              </div>
               <Button
                 size="sm"
-                variant="outline"
-                className="gap-1.5"
+                className="gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-sm font-semibold"
                 onClick={() => setIsAdding(true)}
               >
                 <IconPlus className="size-3.5" />
@@ -888,63 +1037,90 @@ export default function RiwayatPage() {
             </div>
 
             {isAdding && (
-              <div className="mt-4 rounded-lg border bg-muted/30 p-4">
-                <div className="flex flex-col gap-3">
+              <div className="mb-4 rounded-[16px] border border-blue-100 bg-blue-50/50 p-4">
+                <div className="flex flex-col gap-4">
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(categoryLabels).map(([id, label]) => (
                       <button
                         key={id}
                         type="button"
                         onClick={() => setAddCategory(id)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${addCategory === id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-all ${addCategory === id
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                           }`}
                       >
                         {label}
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <Select value={addHours} onValueChange={setAddHours}>
+                      <SelectTrigger size="sm" className="w-full rounded-xl">
+                        <SelectValue placeholder="Jam" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {Array.from({ length: 13 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)}>
+                            {i} jam
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={addMinutes} onValueChange={setAddMinutes}>
+                      <SelectTrigger size="sm" className="w-full rounded-xl">
+                        <SelectValue placeholder="Menit" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                          <SelectItem key={m} value={String(m)}>
+                            {m} menit
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <Input
                       type="number"
                       placeholder="0"
                       min={0}
                       max={23}
-                      className="w-16"
+                      className="w-20 rounded-xl bg-white text-sm"
                       value={addHours}
                       onChange={(e) => setAddHours(e.target.value)}
                     />
-                    <span className="text-xs text-muted-foreground">jam</span>
+                    <span className="text-xs font-bold text-slate-500">jam</span>
                     <Input
                       type="number"
                       placeholder="0"
                       min={0}
                       max={59}
-                      className="w-16"
+                      className="w-20 rounded-xl bg-white text-sm"
                       value={addMinutes}
                       onChange={(e) => setAddMinutes(e.target.value)}
                     />
-                    <span className="text-xs text-muted-foreground">menit</span>
+                    <span className="text-xs font-bold text-slate-500">menit</span>
                   </div>
                   <Textarea
-                    placeholder="Catatan (opsional)"
+                    placeholder="Tulis catatan di sini... (opsional)"
                     rows={2}
-                    className="resize-none"
+                    className="resize-none rounded-xl bg-white text-sm"
                     value={addNotes}
                     onChange={(e) => setAddNotes(e.target.value)}
                   />
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 pt-2 border-t border-blue-100/50">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="rounded-xl bg-white font-semibold"
                       onClick={() => setIsAdding(false)}
                     >
                       Batal
                     </Button>
                     <Button
                       size="sm"
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold text-white"
                       disabled={!addCategory}
                       onClick={handleAddActivity}
                     >
@@ -957,75 +1133,108 @@ export default function RiwayatPage() {
             )}
 
             {selectedDayActivities.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Tidak ada aktivitas untuk hari ini.
-              </p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <IconHistory className="size-8 text-slate-300 mb-2" />
+                <p className="text-sm font-medium text-slate-500">
+                  Tidak ada aktivitas untuk hari ini.
+                </p>
+              </div>
             ) : (
-              <div className="mt-4 flex flex-col gap-3">
-                {selectedDayActivities.map((activity) => {
+              <div className="flex flex-col gap-3">
+                {selectedDayActivities.map((activity, index) => {
                   const Icon = categoryIcons[activity.category] ?? IconDots
                   const isEditing = editingActivity?.id === activity.id
+                  const isOnlyActivityOnDay =
+                    selectedDayActivities.length === 1 &&
+                    selectedDay.date === today
 
                   if (isEditing) {
                     return (
                       <div
-                        key={activity.id}
-                        className="rounded-lg border bg-muted/30 p-4"
+                        key={`${activity.id}-${index}`}
+                        className="rounded-[16px] border border-blue-100 bg-blue-50/50 p-4"
                       >
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-4">
                           <div className="flex flex-wrap gap-2">
                             {Object.entries(categoryLabels).map(([id, label]) => (
                               <button
                                 key={id}
                                 type="button"
                                 onClick={() => setEditCategory(id)}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${editCategory === id
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-all ${editCategory === id
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                                   }`}
                               >
                                 {label}
                               </button>
                             ))}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
+                            <Select value={editHours} onValueChange={setEditHours}>
+                              <SelectTrigger size="sm" className="w-full rounded-xl">
+                                <SelectValue placeholder="Jam" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-64">
+                                {Array.from({ length: 13 }, (_, i) => (
+                                  <SelectItem key={i} value={String(i)}>
+                                    {i} jam
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select value={editMinutes} onValueChange={setEditMinutes}>
+                              <SelectTrigger size="sm" className="w-full rounded-xl">
+                                <SelectValue placeholder="Menit" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-64">
+                                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                                  <SelectItem key={m} value={String(m)}>
+                                    {m} menit
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center gap-3">
                             <Input
                               type="number"
                               placeholder="0"
                               min={0}
                               max={23}
-                              className="w-16"
+                              className="w-20 rounded-xl bg-white text-sm"
                               value={editHours}
                               onChange={(e) => setEditHours(e.target.value)}
                             />
-                            <span className="text-xs text-muted-foreground">jam</span>
+                            <span className="text-xs font-bold text-slate-500">jam</span>
                             <Input
                               type="number"
                               placeholder="0"
                               min={0}
                               max={59}
-                              className="w-16"
+                              className="w-20 rounded-xl bg-white text-sm"
                               value={editMinutes}
                               onChange={(e) => setEditMinutes(e.target.value)}
                             />
-                            <span className="text-xs text-muted-foreground">menit</span>
+                            <span className="text-xs font-bold text-slate-500">menit</span>
                           </div>
                           <Textarea
                             placeholder="Catatan (opsional)"
                             rows={2}
-                            className="resize-none"
+                            className="resize-none rounded-xl bg-white text-sm"
                             value={editNotes}
                             onChange={(e) => setEditNotes(e.target.value)}
                           />
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-2 pt-2 border-t border-blue-100/50">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="rounded-xl bg-white font-semibold"
                               onClick={() => setEditingActivity(null)}
                             >
                               Batal
                             </Button>
-                            <Button size="sm" className="gap-1.5" onClick={handleSaveEdit}>
+                            <Button size="sm" className="gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold" onClick={handleSaveEdit}>
                               <IconDeviceFloppy className="size-3.5" />
                               Simpan
                             </Button>
@@ -1038,54 +1247,56 @@ export default function RiwayatPage() {
                   return (
                     <div
                       key={activity.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      className="flex items-start justify-between rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                          <Icon className="size-4 text-muted-foreground" />
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500 border border-slate-100 mt-0.5">
+                          <Icon className="size-4" />
                         </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs font-medium">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[13px] font-bold text-slate-800">
                             {categoryLabels[activity.category] ?? "Lainnya"}
                           </span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs font-semibold text-blue-600">
                             {formatTotalDuration(
                               activity.durationHours * 60 + activity.durationMinutes
                             )}
                           </span>
                           {activity.notes && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
+                            <p className="text-[11px] font-medium text-slate-500 mt-1 leading-relaxed">
                               {activity.notes}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => startEdit(activity)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                         >
                           <IconPencil className="size-3.5" />
-
                         </button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <button className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                            <button className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500">
                               <IconTrash className="size-3.5" />
                             </button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="rounded-[20px]">
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Yakin ingin menghapus?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Menghapus aktivitas ini dapat mereset atau memutus Streak kamu.
+                              <AlertDialogTitle className="font-bold">
+                                {isOnlyActivityOnDay ? "Hapus aktivitas terakhir hari ini?" : "Yakin ingin menghapus?"}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="font-medium text-slate-500">
+                                <IconAlertTriangle className="inline size-4 mr-1" />
+                                Aktivitas ini akan dihapus permanen.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogCancel className="rounded-xl border-slate-200">Batal</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => handleDeleteActivity(activity.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => handleDeleteSingleActivity(activity.id)}
+                                className="rounded-xl bg-red-500 text-white hover:bg-red-600"
                               >
                                 Hapus
                               </AlertDialogAction>
@@ -1099,9 +1310,10 @@ export default function RiwayatPage() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
               <Button
                 variant="outline"
+                className="rounded-xl px-6 font-semibold"
                 onClick={() => setSelectedDay(null)}
               >
                 Tutup
