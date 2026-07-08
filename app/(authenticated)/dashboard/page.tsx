@@ -14,7 +14,8 @@ import {
   IconCalendarMonth,
   IconInfoCircle,
   IconChevronLeft,
-  IconChevronRight
+  IconChevronRight,
+  IconBulb
 } from "@tabler/icons-react"
 import {
   Card,
@@ -83,6 +84,19 @@ const donutChartConfig = {
     color: "#64748B", // Abu-abu
   },
 } satisfies ChartConfig
+
+const dailyTips = [
+  "Terapkan aturan 20-20-20. Setelah menatap layar selama 20 menit, alihkan pandangan ke objek yang berjarak sekitar 6 meter selama 20 detik, seperti langit atau pepohonan.",
+  "Hindari menggunakan ponsel, tablet, atau laptop sekitar 1 jam sebelum tidur agar kualitas tidur tetap terjaga.",
+  "Berdiri dan lakukan peregangan ringan setiap 30 sampai 60 menit untuk mengurangi dampak duduk terlalu lama.",
+  "Gunakan Focus Mode atau Do Not Disturb saat belajar atau bekerja agar notifikasi tidak mengganggu konsentrasi.",
+  "Nonaktifkan notifikasi dari aplikasi yang tidak penting untuk mengurangi distraksi dan membantu menjaga fokus.",
+  "Letakkan layar sekitar 50 sampai 70 cm dari mata dan posisikan bagian atas layar sejajar atau sedikit di bawah tinggi mata untuk mengurangi ketegangan mata dan leher.",
+  "Sesuaikan tingkat kecerahan layar dengan kondisi ruangan. Layar yang terlalu terang maupun terlalu redup dapat membuat mata lebih cepat lelah.",
+  "Luangkan waktu setiap hari untuk melakukan aktivitas tanpa perangkat digital, seperti membaca buku, berolahraga, atau berjalan santai.",
+  "Hindari menggunakan gadget saat makan agar dapat menikmati waktu makan dengan lebih fokus dan meningkatkan interaksi dengan orang di sekitar.",
+  "Tentukan tujuan sebelum membuka media sosial atau aplikasi hiburan agar terhindar dari kebiasaan scrolling tanpa tujuan.",
+]
 
 const categoryLabels: Record<string, string> = {
   "media-sosial": "Media Sosial",
@@ -428,6 +442,20 @@ export default function DashboardPage() {
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
+  const [dailyTip] = useState(() => {
+    if (typeof window === "undefined") return dailyTips[0]
+    const today = new Date().toISOString().split("T")[0]
+    const key = "digital-habit-daily-tip"
+    try {
+      const stored = JSON.parse(localStorage.getItem(key) ?? "{}")
+      if (stored.date === today && typeof stored.tipIndex === "number") {
+        return dailyTips[stored.tipIndex]
+      }
+    } catch {}
+    const tipIndex = Math.floor(Math.random() * dailyTips.length)
+    localStorage.setItem(key, JSON.stringify({ date: today, tipIndex }))
+    return dailyTips[tipIndex]
+  })
 
   useEffect(() => {
     setActivities(getActivities())
@@ -757,6 +785,32 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </div>
+
+      {/* TIPS SECTION */}
+      <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 border border-amber-200/60 p-6 animate-fade-in-up mt-2">
+        {/* Decorative glow */}
+        <div className="absolute -top-12 -right-12 size-32 bg-amber-300/30 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 size-24 bg-orange-300/20 rounded-full blur-xl pointer-events-none" />
+
+        <div className="relative z-10 flex items-start gap-4">
+          {/* Icon with glow ring */}
+          <div className="relative shrink-0">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/80 shadow-sm backdrop-blur-sm border border-amber-200/50">
+              <IconBulb className="size-6 text-amber-500" />
+            </div>
+            <div className="absolute inset-0 rounded-2xl bg-amber-400/20 blur-md -z-10" />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80">
+              Tips Hari Ini
+            </span>
+            <p className="text-sm leading-relaxed text-slate-700 font-medium">
+              {dailyTip}
+            </p>
+          </div>
         </div>
       </div>
     </div>

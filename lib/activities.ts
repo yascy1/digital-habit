@@ -33,6 +33,7 @@ export function saveActivity(activity: Activity): void {
   const email = getCurrentUserEmail()
   if (!email) return
   const existing = getActivities()
+  if (existing.some((a) => a.id === activity.id)) return
   existing.push(activity)
   localStorage.setItem(getActivitiesKey(email), JSON.stringify({ activities: existing }))
 }
@@ -41,7 +42,9 @@ export function saveActivities(activities: Activity[]): void {
   const email = getCurrentUserEmail()
   if (!email) return
   const existing = getActivities()
-  existing.push(...activities)
+  const existingIds = new Set(existing.map((a) => a.id))
+  const newActivities = activities.filter((a) => !existingIds.has(a.id))
+  existing.push(...newActivities)
   localStorage.setItem(getActivitiesKey(email), JSON.stringify({ activities: existing }))
 }
 
