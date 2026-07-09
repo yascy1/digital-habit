@@ -46,6 +46,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip"
 import { getActivities, getProfile } from "@/lib/activities"
+import { getLocalDateStr } from "@/lib/utils"
 import { computeWellnessScore } from "@/lib/dashboard-score"
 import type { Activity } from "@/lib/types"
 
@@ -444,7 +445,7 @@ export default function DashboardPage() {
   const [monthOffset, setMonthOffset] = useState(0)
   const [dailyTip] = useState(() => {
     if (typeof window === "undefined") return dailyTips[0]
-    const today = new Date().toISOString().split("T")[0]
+    const today = getLocalDateStr()
     const key = "digital-habit-daily-tip"
     try {
       const stored = JSON.parse(localStorage.getItem(key) ?? "{}")
@@ -460,7 +461,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setActivities(getActivities())
     setProfile(getProfile())
-    setDatePicker(new Date().toISOString().split("T")[0])
+    setDatePicker(getLocalDateStr())
     const refresh = () => setActivities(getActivities())
     window.addEventListener("focus", refresh)
     return () => window.removeEventListener("focus", refresh)

@@ -25,6 +25,7 @@ import {
   IconAlertTriangle,
 } from "@tabler/icons-react"
 import { jsPDF } from "jspdf"
+import { getLocalDateStr } from "@/lib/utils"
 import autoTable from "jspdf-autotable"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
@@ -479,7 +480,7 @@ export default function RiwayatPage() {
   }
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0])
+    setToday(getLocalDateStr())
     setActivities(getActivities())
   }, [])
 

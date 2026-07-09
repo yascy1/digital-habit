@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { saveActivities } from "@/lib/activities"
+import { getLocalDateStr } from "@/lib/utils"
 import type { Activity } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -71,7 +72,7 @@ export default function InputAktivitasPage() {
   const [pendingList, setPendingList] = useState<Activity[]>([])
 
   useEffect(() => {
-    setDate(new Date().toISOString().split("T")[0])
+    setDate(getLocalDateStr())
   }, [])
 
   const totalPendingMinutes = useMemo(() => {

@@ -94,15 +94,15 @@ export default function RegisterPage() {
           {/* FORM PENDAFTARAN */}
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             
-            {/* Input Nama Lengkap */}
+            {/* Input Nama */}
             <div className="flex flex-col gap-1">
-              <Label htmlFor="name" className="text-xs font-semibold text-slate-700 px-1">Nama Lengkap</Label>
+              <Label htmlFor="name" className="text-xs font-semibold text-slate-700 px-1">Nama</Label>
               <div className="relative flex items-center">
                 <User className="absolute left-3.5 h-4 w-4 text-slate-400" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Masukkan nama lengkap"
+                  placeholder="Masukkan nama"
                   className="pl-10 pr-4 py-2 h-9 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-colors"
                   aria-invalid={!!errors.name}
                   {...register("name")}

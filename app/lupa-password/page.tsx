@@ -191,7 +191,7 @@ export default function LupaPasswordPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <Label htmlFor="name" className="text-xs font-semibold text-slate-700 px-1">Nama Lengkap</Label>
+                <Label htmlFor="name" className="text-xs font-semibold text-slate-700 px-1">Nama</Label>
                 <div className="relative flex items-center">
                   <User className="absolute left-3.5 h-4 w-4 text-slate-400" />
                   <Input
