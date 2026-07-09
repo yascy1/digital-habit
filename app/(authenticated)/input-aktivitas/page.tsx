@@ -250,6 +250,7 @@ export default function InputAktivitasPage() {
               <IconCalendarEvent className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400 pointer-events-none" />
               <Input
                 type="date"
+                max={date}
                 className="pl-11 rounded-xl border-slate-200 h-11 font-medium text-slate-700"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}

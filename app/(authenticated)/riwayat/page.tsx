@@ -911,9 +911,10 @@ export default function RiwayatPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent className="rounded-[20px]">
                             <AlertDialogHeader>
+                              <IconAlertTriangle className="inline size-4 mr-1" />
                               <AlertDialogTitle className="font-bold">Hapus Seluruh Aktivitas Hari Ini?</AlertDialogTitle>
                               <AlertDialogDescription className="font-medium text-slate-500">
-                                Menghapus aktivitas pada hari ini akan <b>menghapus data aktivitas hari ini</b>. Tindakan ini tidak dapat dibatalkan.
+                                Semua aktivitas yang tercatat pada hari <b> akan dihapus secara permanen </b>. Tindakan ini tidak dapat dibatalkan.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -1288,7 +1289,6 @@ export default function RiwayatPage() {
                                 {isOnlyActivityOnDay ? "Hapus aktivitas terakhir hari ini?" : "Yakin ingin menghapus?"}
                               </AlertDialogTitle>
                               <AlertDialogDescription className="font-medium text-slate-500">
-                                <IconAlertTriangle className="inline size-4 mr-1" />
                                 Aktivitas ini akan dihapus permanen.
                               </AlertDialogDescription>
                             </AlertDialogHeader>

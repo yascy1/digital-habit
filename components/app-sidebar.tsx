@@ -10,6 +10,17 @@ import {
   IconLogout
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const menuItems = [
   {
@@ -45,7 +56,7 @@ export function AppSidebar() {
 
   return (
     // Tambahkan relative dan overflow-hidden di sini
-    <aside className="relative flex h-full w-64 flex-col border-r border-slate-200 bg-white overflow-hidden">
+    <aside className="relative hidden md:flex h-full w-64 flex-col border-r border-slate-200 bg-white overflow-hidden">
       
       {/* ================= GAMBAR DAUN SIDEBAR ================= */}
       {/* Letakkan absolute di bawah, z-0 agar jadi background */}
@@ -99,15 +110,33 @@ export function AppSidebar() {
       {/* LOGOUT BUTTON */}
       {/* Tambahkan relative z-10 di sini agar tetap bisa diklik */}
       <div className="relative z-10 px-4 pb-6 mt-auto">
-        <button 
-          onClick={handleLogout} 
-          // Ubah background hover jadi putih semi transparan/krem agar tidak bentrok dengan warna daun jika perlu,
-          // tapi memakai red-50 seperti kodemu juga sudah oke selama teksnya terbaca.
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 bg-white/50 backdrop-blur-sm"
-        >
-          <IconLogout className="size-5" stroke={2} />
-          Logout
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button 
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 bg-white/50 backdrop-blur-sm"
+            >
+              <IconLogout className="size-5" stroke={2} />
+              Logout
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="rounded-[20px]">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-bold">Yakin ingin logout?</AlertDialogTitle>
+              <AlertDialogDescription className="font-medium text-slate-500">
+                Anda akan keluar dari akun ini.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl border-slate-200">Batal</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleLogout}
+                className="rounded-xl bg-red-500 text-white hover:bg-red-600"
+              >
+                Logout
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </aside>
   )

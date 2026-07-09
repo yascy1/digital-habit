@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -132,6 +132,10 @@ export default function Home() {
               </span>
             </motion.h1>
 
+            <motion.p variants={fadeUp} className="text-sm font-semibold text-blue-600 mb-4">
+              Aplikasi pelacak screen time untuk kebiasaan digital yang lebih sehat.
+            </motion.p>
+
             <motion.p variants={fadeUp} className="text-base sm:text-lg text-slate-600 leading-relaxed mb-10 max-w-xl">
               Pantau, kelola, dan pahami waktu layarmu dengan <span className="text-blue-600 font-semibold">insight</span> yang bermakna untuk membentuk kebiasaan digital yang lebih <span className="text-[#0F172A] font-bold">sehat, fokus, dan produktif.</span>
             </motion.p>
@@ -166,8 +170,8 @@ export default function Home() {
                   <Target className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-800">Capai Tujuan</span>
-                  <span className="text-[11px] font-medium text-slate-500 mt-0.5">Target yang realistis</span>
+                  <span className="text-sm font-bold text-slate-800">Kelola Waktu</span>
+                  <span className="text-[11px] font-medium text-slate-500 mt-0.5">Gunakan screen time dengan bijak</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 group">
@@ -222,7 +226,7 @@ export default function Home() {
               Cara Kerja Digital Habit
             </h2>
             <p className="text-slate-500 text-sm md:text-base max-w-xl mx-auto">
-              Fitur komprehensif untuk mengambil alih kembali kendali atas waktu digitalmu.
+              Berbagai fitur untuk membantumu mengelola waktu digital dengan lebih baik.
             </p>
           </motion.div>
 

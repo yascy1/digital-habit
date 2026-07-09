@@ -16,7 +16,6 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight,
-  Sparkles,
   CheckCircle2
 } from "lucide-react"
 
@@ -112,7 +111,6 @@ export default function LupaPasswordPage() {
           <div className="flex flex-col items-center justify-center mb-6">
             <div className="relative mb-2">
               <img src="/digital-habit/logo.png" alt="Digital Habit Logo" className="h-9 w-9 rounded-lg shadow-md shadow-blue-500/25 object-cover" />
-              <Sparkles className="absolute -top-1 -right-1 h-2.5 w-2.5 text-blue-200 animate-pulse" />
             </div>
             <h1 className="text-lg font-bold tracking-tight text-[#0F172A]">
               Digital Habit

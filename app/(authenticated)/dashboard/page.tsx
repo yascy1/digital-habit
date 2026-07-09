@@ -789,7 +789,7 @@ export default function DashboardPage() {
       </div>
 
       {/* TIPS SECTION */}
-      <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 border border-amber-200/60 p-6 animate-fade-in-up mt-2">
+      <div className="relative overflow-hidden rounded-[24px] bg-linear-to-br from-amber-50 via-orange-50 to-amber-100 border border-amber-200/60 p-6 animate-fade-in-up mt-2">
         {/* Decorative glow */}
         <div className="absolute -top-12 -right-12 size-32 bg-amber-300/30 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 size-24 bg-orange-300/20 rounded-full blur-xl pointer-events-none" />

@@ -394,7 +394,7 @@ export default function ProfilPage() {
           </CardContent>
 
           {/* Gambar Pot diletakkan absolute di pojok kanan bawah */}
-          <div className="absolute bottom-0 right-0 w-64 h-64 pointer-events-none z-0">
+          <div className="absolute bottom-0 right-0 w-40 h-40 pointer-events-none z-0">
             {/* Gunakan object-contain agar gambar 3D tidak terpotong, dan hapus mix-blend-multiply */}
             <img
               src="pot.png"
