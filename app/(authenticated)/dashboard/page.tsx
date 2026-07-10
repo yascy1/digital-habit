@@ -229,7 +229,7 @@ function getScreenTimeTrend(activities: Activity[], dates: string[]) {
     const d = new Date(date + "T00:00:00")
     return {
       day: dates.length <= 7 ? dayNames[d.getDay()] : formatDate(date),
-      screentime: grouped[date],
+      screentime: Math.round((grouped[date] / 60) * 10) / 10,  // ← konversi ke jam (misal 3)
     }
   })
 }
@@ -244,16 +244,21 @@ function computeDonutData(activities: Activity[]) {
   const total = Object.values(catMinutes).reduce((s, v) => s + v, 0)
   if (total === 0) return []
 
-  return Object.entries(catMinutes)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, value]) => ({
+  const sorted = Object.entries(catMinutes).sort((a, b) => b[1] - a[1])
+  let remaining = 100
+  return sorted.map(([name, value], idx) => {
+    const isLast = idx === sorted.length - 1
+    const percent = isLast ? remaining : Math.round((value / total) * 100)
+    remaining -= percent
+    return {
       name,
-      value: Math.round((value / total) * 100),
-      percent: Math.round((value / total) * 100),
+      value: percent,
+      percent,
       minutes: value,
       formattedTime: formatMinutes(value),
       fill: chartColors[name] ?? "var(--chart-5)",
-    }))
+    }
+  })
 }
 
 function computeStats(
@@ -443,20 +448,21 @@ export default function DashboardPage() {
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
-  const [dailyTip] = useState(() => {
-    if (typeof window === "undefined") return dailyTips[0]
+  const [dailyTip, setDailyTip] = useState(dailyTips[0])
+  useEffect(() => {
     const today = getLocalDateStr()
     const key = "digital-habit-daily-tip"
     try {
       const stored = JSON.parse(localStorage.getItem(key) ?? "{}")
       if (stored.date === today && typeof stored.tipIndex === "number") {
-        return dailyTips[stored.tipIndex]
+        setDailyTip(dailyTips[stored.tipIndex])
+        return
       }
-    } catch {}
+    } catch { }
     const tipIndex = Math.floor(Math.random() * dailyTips.length)
     localStorage.setItem(key, JSON.stringify({ date: today, tipIndex }))
-    return dailyTips[tipIndex]
-  })
+    setDailyTip(dailyTips[tipIndex])
+  }, [])
 
   useEffect(() => {
     setActivities(getActivities())
